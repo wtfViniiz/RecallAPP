@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recall</title>
+  <link rel="stylesheet" href="styles/base.css">
+  <link rel="stylesheet" href="styles/themes.css">
+  <link rel="stylesheet" href="styles/components.css">
+</head>
+<body class="dark">
+  <div id="app">
+    <nav id="tabs">
+      <button class="tab active" data-tab="notes">&#128213; Notas</button>
+      <button class="tab" data-tab="reminders">&#128276; Lembretes</button>
+      <button class="tab" data-tab="settings">&#9881; Config</button>
+    </nav>
+    <main id="content">
+      <div id="view-notes" class="view active"></div>
+      <div id="view-reminders" class="view"></div>
+      <div id="view-settings" class="view"></div>
+    </main>
+  </div>
+  <script type="module" src="scripts/app.js"></script>
+</body>
+</html>

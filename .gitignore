@@ -1,1 +1,8 @@
-docs/
+/target
+/src-tauri/target
+/src-tauri/data
+node_modules
+*.msi
+*.exe
+.DS_Store
+/docs
