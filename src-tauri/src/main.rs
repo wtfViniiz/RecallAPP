@@ -1,8 +1,13 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use tauri::Manager;
+
 mod commands;
 mod models;
+mod scheduler;
+mod shortcuts;
 mod storage;
+mod tray;
 
 fn main() {
     tauri::Builder::default()
@@ -12,6 +17,23 @@ fn main() {
         ))
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_shell::init())
+        .setup(|app| {
+            tray::setup_tray(app)?;
+            scheduler::start_scheduler(app.handle().clone());
+            shortcuts::register_shortcut(app)?;
+
+            if let Some(window) = app.get_webview_window("main") {
+                let window_clone = window.clone();
+                window.on_window_event(move |event| {
+                    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                        api.prevent_close();
+                        let _ = window_clone.hide();
+                    }
+                });
+            }
+
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             commands::get_notes,
             commands::get_note,
