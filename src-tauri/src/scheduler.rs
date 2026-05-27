@@ -1,7 +1,7 @@
 use crate::storage;
 use chrono::{DateTime, Utc};
 use std::sync::Arc;
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 
 pub fn start_scheduler(app: AppHandle) {
     let app = Arc::new(app);
