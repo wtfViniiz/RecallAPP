@@ -3,8 +3,7 @@
   "version": "0.1.0",
   "identifier": "com.recall.app",
   "build": {
-    "frontendDist": "../src",
-    "devUrl": "http://localhost:1420"
+    "frontendDist": "../src"
   },
   "app": {
     "windows": [
