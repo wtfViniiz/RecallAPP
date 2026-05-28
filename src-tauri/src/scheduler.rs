@@ -1,5 +1,6 @@
 use crate::storage;
 use chrono::{DateTime, Utc};
+use std::panic::catch_unwind;
 use std::sync::Arc;
 use tauri::{AppHandle, Manager};
 
@@ -11,14 +12,18 @@ pub fn start_scheduler(app: AppHandle) {
         let app_clone = app.clone();
         std::thread::spawn(move || {
             std::thread::sleep(std::time::Duration::from_secs(2));
-            check_and_fire(&app_clone);
+            let _ = catch_unwind(std::panic::AssertUnwindSafe(|| {
+                check_and_fire(&app_clone);
+            }));
         });
     }
 
     // Periodic check every 30 seconds
     std::thread::spawn(move || loop {
         std::thread::sleep(std::time::Duration::from_secs(30));
-        check_and_fire(&app);
+        let _ = catch_unwind(std::panic::AssertUnwindSafe(|| {
+            check_and_fire(&app);
+        }));
     });
 }
 

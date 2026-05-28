@@ -30,6 +30,7 @@ export const api = {
   // Helpers
   getCategories: () => invoke('get_categories'),
   getTags: () => invoke('get_tags'),
+  getCategoriesAndTags: () => invoke('get_categories_and_tags'),
 
   // Window
   setAlwaysOnTop: (pinned) => invoke('set_always_on_top', { pinned }),

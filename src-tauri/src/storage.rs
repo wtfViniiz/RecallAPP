@@ -1,7 +1,10 @@
 use crate::models::{Config, Note, NoteFilter, Reminder};
 use std::fs;
 use std::path::PathBuf;
+use std::sync::Once;
 use tauri::Manager;
+
+static DIR_INIT: Once = Once::new();
 
 fn data_dir(app_handle: &tauri::AppHandle) -> PathBuf {
     let dir = app_handle
@@ -9,8 +12,10 @@ fn data_dir(app_handle: &tauri::AppHandle) -> PathBuf {
         .app_data_dir()
         .unwrap_or_else(|_| PathBuf::from("."))
         .join("data");
-    let _ = fs::create_dir_all(dir.join("notes"));
-    let _ = fs::create_dir_all(dir.join("reminders"));
+    DIR_INIT.call_once(|| {
+        let _ = fs::create_dir_all(dir.join("notes"));
+        let _ = fs::create_dir_all(dir.join("reminders"));
+    });
     dir
 }
 
@@ -81,6 +86,25 @@ pub fn list_notes(app_handle: &tauri::AppHandle, filter: Option<NoteFilter>) -> 
     });
 
     notes
+}
+
+pub fn list_all_notes(app_handle: &tauri::AppHandle) -> Vec<Note> {
+    let dir = notes_dir(app_handle);
+    fs::read_dir(&dir)
+        .ok()
+        .into_iter()
+        .flatten()
+        .filter_map(|entry| {
+            let entry = entry.ok()?;
+            if entry.path().extension().map_or(false, |e| e == "tmp") {
+                return None;
+            }
+            let content = fs::read_to_string(entry.path()).ok()?;
+            let mut note: Note = serde_json::from_str(&content).ok()?;
+            migrate_note(&mut note);
+            Some(note)
+        })
+        .collect()
 }
 
 pub fn list_trashed_notes(app_handle: &tauri::AppHandle) -> Vec<Note> {
@@ -196,28 +220,33 @@ pub fn save_config(app_handle: &tauri::AppHandle, config: &Config) -> Result<(),
 
 // --- Helpers ---
 
-pub fn get_categories(app_handle: &tauri::AppHandle) -> Vec<String> {
+pub fn get_categories_and_tags(app_handle: &tauri::AppHandle) -> (Vec<String>, Vec<String>) {
     let notes = list_notes(app_handle, None);
-    let mut categories: Vec<String> = notes
-        .iter()
-        .filter_map(|n| n.category.clone())
-        .collect::<std::collections::HashSet<_>>()
-        .into_iter()
-        .collect();
+    let mut categories = std::collections::HashSet::new();
+    let mut tags = std::collections::HashSet::new();
+
+    for note in &notes {
+        if let Some(cat) = &note.category {
+            categories.insert(cat.clone());
+        }
+        for tag in &note.tags {
+            tags.insert(tag.clone());
+        }
+    }
+
+    let mut categories: Vec<String> = categories.into_iter().collect();
+    let mut tags: Vec<String> = tags.into_iter().collect();
     categories.sort();
-    categories
+    tags.sort();
+    (categories, tags)
+}
+
+pub fn get_categories(app_handle: &tauri::AppHandle) -> Vec<String> {
+    get_categories_and_tags(app_handle).0
 }
 
 pub fn get_tags(app_handle: &tauri::AppHandle) -> Vec<String> {
-    let notes = list_notes(app_handle, None);
-    let mut tags: Vec<String> = notes
-        .iter()
-        .flat_map(|n| n.tags.clone())
-        .collect::<std::collections::HashSet<_>>()
-        .into_iter()
-        .collect();
-    tags.sort();
-    tags
+    get_categories_and_tags(app_handle).1
 }
 
 // --- Migration ---
@@ -304,5 +333,172 @@ mod tests {
         };
         migrate_note(&mut note);
         assert_eq!(note.schema_version, 1);
+    }
+
+    #[test]
+    fn test_note_migration_already_current() {
+        let mut note = Note {
+            id: "test".to_string(),
+            title: "Test".to_string(),
+            content: "".to_string(),
+            category: None,
+            tags: vec![],
+            pinned: false,
+            trashed: false,
+            trashed_at: None,
+            schema_version: 1,
+            created_at: "".to_string(),
+            updated_at: "".to_string(),
+        };
+        migrate_note(&mut note);
+        assert_eq!(note.schema_version, 1);
+    }
+
+    #[test]
+    fn test_reminder_migration() {
+        let mut reminder = Reminder {
+            id: "test".to_string(),
+            title: "Test".to_string(),
+            description: None,
+            note_id: None,
+            trigger_at: "".to_string(),
+            repeat: None,
+            relative_minutes: None,
+            status: "pending".to_string(),
+            schema_version: 0,
+            created_at: "".to_string(),
+        };
+        migrate_reminder(&mut reminder);
+        assert_eq!(reminder.schema_version, 1);
+    }
+
+    #[test]
+    fn test_reminder_migration_already_current() {
+        let mut reminder = Reminder {
+            id: "test".to_string(),
+            title: "Test".to_string(),
+            description: None,
+            note_id: None,
+            trigger_at: "".to_string(),
+            repeat: None,
+            relative_minutes: None,
+            status: "pending".to_string(),
+            schema_version: 1,
+            created_at: "".to_string(),
+        };
+        migrate_reminder(&mut reminder);
+        assert_eq!(reminder.schema_version, 1);
+    }
+
+    #[test]
+    fn test_atomic_write_success() {
+        let dir = tempfile::tempdir().unwrap();
+        let file_path = dir.path().join("test.json");
+
+        let content = r#"{"id":"1","title":"Test"}"#;
+        let result = atomic_write(&file_path, content);
+        assert!(result.is_ok());
+
+        let written = fs::read_to_string(&file_path).unwrap();
+        assert_eq!(written, content);
+
+        // Verify temp file was cleaned up
+        let tmp_path = file_path.with_extension("json.tmp");
+        assert!(!tmp_path.exists());
+    }
+
+    #[test]
+    fn test_atomic_write_overwrites_existing() {
+        let dir = tempfile::tempdir().unwrap();
+        let file_path = dir.path().join("test.json");
+
+        // Write initial content
+        fs::write(&file_path, "old content").unwrap();
+
+        // Overwrite with atomic write
+        let new_content = r#"{"id":"1","title":"Updated"}"#;
+        let result = atomic_write(&file_path, new_content);
+        assert!(result.is_ok());
+
+        let written = fs::read_to_string(&file_path).unwrap();
+        assert_eq!(written, new_content);
+    }
+
+    #[test]
+    fn test_atomic_write_invalid_path() {
+        let result = atomic_write(
+            std::path::Path::new("/nonexistent/dir/test.json"),
+            "content",
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_config_serialization_roundtrip() {
+        let config = Config {
+            theme: "light".to_string(),
+            shortcut: "Ctrl+Shift+N".to_string(),
+            autostart: false,
+            check_updates: true,
+            window_width: 800,
+            window_height: 600,
+        };
+
+        let json = serde_json::to_string_pretty(&config).unwrap();
+        let parsed: Config = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(parsed.theme, "light");
+        assert_eq!(parsed.shortcut, "Ctrl+Shift+N");
+        assert!(!parsed.autostart);
+        assert!(parsed.check_updates);
+        assert_eq!(parsed.window_width, 800);
+        assert_eq!(parsed.window_height, 600);
+    }
+
+    #[test]
+    fn test_note_json_structure() {
+        let note = Note {
+            id: "abc".to_string(),
+            title: "Title".to_string(),
+            content: "Content".to_string(),
+            category: Some("Cat".to_string()),
+            tags: vec!["t1".to_string(), "t2".to_string()],
+            pinned: true,
+            trashed: false,
+            trashed_at: None,
+            schema_version: 1,
+            created_at: "2026-05-28T10:00:00Z".to_string(),
+            updated_at: "2026-05-28T10:00:00Z".to_string(),
+        };
+
+        let json = serde_json::to_string(&note).unwrap();
+        let value: serde_json::Value = serde_json::from_str(&json).unwrap();
+
+        // Verify JSON structure
+        assert!(value.is_object());
+        assert_eq!(value["id"].as_str().unwrap(), "abc");
+        assert_eq!(value["title"].as_str().unwrap(), "Title");
+        assert_eq!(value["category"].as_str().unwrap(), "Cat");
+        assert!(value["tags"].is_array());
+        assert_eq!(value["tags"].as_array().unwrap().len(), 2);
+        assert!(value["pinned"].as_bool().unwrap());
+    }
+
+    #[test]
+    fn test_note_filter_deserialization() {
+        let json = r#"{"search":"test","category":"Work","tag":"urgent"}"#;
+        let filter: NoteFilter = serde_json::from_str(json).unwrap();
+        assert_eq!(filter.search, Some("test".to_string()));
+        assert_eq!(filter.category, Some("Work".to_string()));
+        assert_eq!(filter.tag, Some("urgent".to_string()));
+    }
+
+    #[test]
+    fn test_note_filter_empty_json() {
+        let json = r#"{}"#;
+        let filter: NoteFilter = serde_json::from_str(json).unwrap();
+        assert!(filter.search.is_none());
+        assert!(filter.category.is_none());
+        assert!(filter.tag.is_none());
     }
 }

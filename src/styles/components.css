@@ -41,7 +41,8 @@
   margin-left: 8px;
 }
 
-.card:hover .delete-note-btn {
+.card:hover .delete-note-btn,
+.card:focus-within .delete-note-btn {
   opacity: 1;
 }
 
@@ -718,4 +719,17 @@ mark {
   height: 6px;
   border-radius: 50%;
   background: var(--accent);
+}
+
+/* Confirm toast */
+.confirm-toast {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
 }

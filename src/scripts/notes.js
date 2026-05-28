@@ -1,5 +1,5 @@
 import { api } from './api.js';
-import { formatDate, formatDateTime, escapeHtml, showToast, renderMarkdown, DEFAULT_CATEGORIES, DEFAULT_TAGS, NOTE_TEMPLATES } from './utils.js';
+import { formatDate, formatDateTime, escapeHtml, showToast, showConfirm, renderMarkdown, DEFAULT_CATEGORIES, DEFAULT_TAGS, NOTE_TEMPLATES } from './utils.js';
 
 let currentView = 'list';
 let currentNote = null;
@@ -11,6 +11,16 @@ let keyListenersAttached = false;
 export async function initNotes() {
   setupGlobalKeyListeners();
   await renderNotesList();
+}
+
+export async function flushPendingSave() {
+  if (saveTimeout) {
+    clearTimeout(saveTimeout);
+    saveTimeout = null;
+    if (currentNote && currentView === 'editor') {
+      await saveNote(true);
+    }
+  }
 }
 
 function setupGlobalKeyListeners() {
@@ -50,9 +60,9 @@ async function renderNotesList() {
   document.getElementById('btn-trash').addEventListener('click', renderTrashList);
 
   try {
-    const [apiCats, apiTags] = await Promise.all([api.getCategories(), api.getTags()]);
-    apiCats.forEach(c => { if (!allCategories.includes(c)) allCategories.push(c); });
-    apiTags.forEach(t => { if (!allTags.includes(t)) allTags.push(t); });
+    const result = await api.getCategoriesAndTags();
+    result.categories.forEach(c => { if (!allCategories.includes(c)) allCategories.push(c); });
+    result.tags.forEach(t => { if (!allTags.includes(t)) allTags.push(t); });
   } catch (e) {}
 
   const catSelect = document.getElementById('filter-category');
@@ -184,10 +194,12 @@ async function renderTrashList() {
   `;
 
   document.getElementById('btn-back-notes').addEventListener('click', renderNotesList);
-  document.getElementById('btn-empty-trash').addEventListener('click', async () => {
-    const count = await api.emptyTrash();
-    showToast(`${count} notas excluidas permanentemente`, 'success');
-    renderTrashList();
+  document.getElementById('btn-empty-trash').addEventListener('click', () => {
+    showConfirm('Excluir permanentemente todas as notas da lixeira?', async () => {
+      const count = await api.emptyTrash();
+      showToast(`${count} notas excluidas permanentemente`, 'success');
+      renderTrashList();
+    });
   });
 
   const notes = await api.getTrashedNotes();
@@ -223,11 +235,13 @@ async function renderTrashList() {
   });
 
   list.querySelectorAll('[data-delete]').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
+    btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      await api.deleteNote(btn.dataset.delete);
-      showToast('Nota excluida permanentemente', 'success');
-      renderTrashList();
+      showConfirm('Excluir permanentemente?', async () => {
+        await api.deleteNote(btn.dataset.delete);
+        showToast('Nota excluida permanentemente', 'success');
+        renderTrashList();
+      });
     });
   });
 }
@@ -329,6 +343,7 @@ function openEditor(note) {
       <div class="timestamp">Criada: ${formatDateTime(note.created_at)}</div>
       <div class="timestamp">Editada: ${formatDateTime(note.updated_at)}</div>
     ` : ''}
+    <div id="save-status" class="timestamp"></div>
   `;
 
   const titleInput = document.getElementById('note-title');
@@ -351,7 +366,19 @@ function openEditor(note) {
 
   const autoSave = () => {
     clearTimeout(saveTimeout);
-    saveTimeout = setTimeout(() => saveNote(true), 1000);
+    const status = document.getElementById('save-status');
+    if (status) {
+      status.textContent = 'Salvando...';
+      status.style.color = 'var(--text-secondary)';
+    }
+    saveTimeout = setTimeout(async () => {
+      await saveNote(true);
+      if (status) {
+        status.textContent = 'Salvo';
+        status.style.color = 'var(--success)';
+        setTimeout(() => { if (status) status.textContent = ''; }, 2000);
+      }
+    }, 1000);
   };
 
   titleInput.addEventListener('input', autoSave);
@@ -388,6 +415,19 @@ function openEditor(note) {
         reader.readAsDataURL(file);
         return;
       }
+    }
+  });
+
+  // Event delegation for chip removal (works for pre-rendered and new chips)
+  document.getElementById('category-chips').addEventListener('click', (e) => {
+    if (e.target.classList.contains('remove')) {
+      e.target.parentElement.remove();
+      document.getElementById('note-category-input').placeholder = 'Selecionar...';
+    }
+  });
+  document.getElementById('tag-chips').addEventListener('click', (e) => {
+    if (e.target.classList.contains('remove')) {
+      e.target.parentElement.remove();
     }
   });
 
@@ -446,16 +486,23 @@ function openEditor(note) {
       openEditor({ ...note, pinned: !note.pinned });
     });
 
-    document.getElementById('btn-delete-note').addEventListener('click', async () => {
-      await api.trashNote(note.id);
-      showToast('Nota movida para lixeira', 'success');
-      currentView = 'list';
-      renderNotesList();
+    document.getElementById('btn-delete-note').addEventListener('click', () => {
+      showConfirm('Mover para lixeira?', async () => {
+        await api.trashNote(note.id);
+        showToast('Nota movida para lixeira', 'success');
+        currentView = 'list';
+        renderNotesList();
+      });
     });
   }
 
   setupChipInput('category-chips', 'note-category-input', allCategories, false);
   setupChipInput('tag-chips', 'note-tags-input', allTags, true);
+
+  // Attach click handlers to pre-existing chip remove buttons
+  document.querySelectorAll('#category-chips .remove, #tag-chips .remove').forEach(btn => {
+    btn.addEventListener('click', () => btn.parentElement.remove());
+  });
 }
 
 function setupChipInput(containerId, inputId, suggestions, allowMultiple) {

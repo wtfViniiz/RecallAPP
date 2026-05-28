@@ -1,6 +1,7 @@
 export function formatDate(isoString) {
   if (!isoString) return '';
   const d = new Date(isoString);
+  if (isNaN(d.getTime())) return '';
   const day = String(d.getDate()).padStart(2, '0');
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const year = d.getFullYear();
@@ -10,6 +11,7 @@ export function formatDate(isoString) {
 export function formatDateTime(isoString) {
   if (!isoString) return '';
   const d = new Date(isoString);
+  if (isNaN(d.getTime())) return '';
   const day = String(d.getDate()).padStart(2, '0');
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const year = d.getFullYear();
@@ -22,6 +24,7 @@ export function formatRelativeDate(isoString) {
   if (!isoString) return '';
   const now = new Date();
   const target = new Date(isoString);
+  if (isNaN(target.getTime())) return '';
   const diffMs = target - now;
   const diffMins = Math.round(diffMs / 60000);
 
@@ -36,9 +39,12 @@ export function formatRelativeDate(isoString) {
 
 export function escapeHtml(str) {
   if (!str) return '';
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 // Toast notification system
@@ -55,15 +61,77 @@ export function showToast(message, type = 'info', duration = 3000) {
   }, duration);
 }
 
+export function showConfirm(message, onConfirm) {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = 'toast warning confirm-toast';
+
+  const msg = document.createElement('span');
+  msg.textContent = message;
+
+  const actions = document.createElement('div');
+  actions.className = 'confirm-actions';
+
+  const confirmBtn = document.createElement('button');
+  confirmBtn.className = 'btn btn-sm btn-danger';
+  confirmBtn.textContent = 'Confirmar';
+  confirmBtn.addEventListener('click', () => {
+    toast.remove();
+    onConfirm();
+  });
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'btn btn-sm btn-secondary';
+  cancelBtn.textContent = 'Cancelar';
+  cancelBtn.addEventListener('click', () => toast.remove());
+
+  actions.appendChild(cancelBtn);
+  actions.appendChild(confirmBtn);
+  toast.appendChild(msg);
+  toast.appendChild(actions);
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    if (toast.parentNode) {
+      toast.style.animation = 'slideIn 0.2s ease-out reverse';
+      setTimeout(() => toast.remove(), 200);
+    }
+  }, 8000);
+}
+
 // Lightweight markdown renderer
+function sanitizeUrl(url) {
+  const lower = url.toLowerCase().trim();
+  if (lower.startsWith('javascript:') || lower.startsWith('data:') || lower.startsWith('vbscript:') || lower.startsWith('blob:')) {
+    return '#blocked';
+  }
+  // Block protocol-relative URLs
+  if (lower.startsWith('//')) {
+    return '#blocked';
+  }
+  return url;
+}
+
 export function renderMarkdown(text) {
   if (!text) return '';
   let html = escapeHtml(text);
 
-  // Code blocks
-  html = html.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
-  // Inline code
-  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+  // Extract code blocks before processing to preserve their content
+  const codeBlocks = [];
+  html = html.replace(/```([\s\S]*?)```/g, (_, code) => {
+    const placeholder = `__CODEBLOCK_${codeBlocks.length}__`;
+    codeBlocks.push(`<pre><code>${code}</code></pre>`);
+    return placeholder;
+  });
+
+  // Extract inline code
+  const inlineCodes = [];
+  html = html.replace(/`([^`]+)`/g, (_, code) => {
+    const placeholder = `__INLINECODE_${inlineCodes.length}__`;
+    inlineCodes.push(`<code>${code}</code>`);
+    return placeholder;
+  });
+
   // Bold
   html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
   // Italic
@@ -80,12 +148,24 @@ export function renderMarkdown(text) {
   html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
   // Horizontal rule
   html = html.replace(/^---$/gm, '<hr>');
-  // Links
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
-  // Images (local paths)
-  html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" style="max-width:100%;border-radius:6px;margin:4px 0">');
-  // Line breaks
+  // Links (with URL sanitization)
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, text, url) => {
+    return `<a href="${sanitizeUrl(url)}" target="_blank">${text}</a>`;
+  });
+  // Images (with URL sanitization)
+  html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, url) => {
+    return `<img src="${sanitizeUrl(url)}" alt="${alt}" style="max-width:100%;border-radius:6px;margin:4px 0">`;
+  });
+  // Line breaks (outside code blocks)
   html = html.replace(/\n/g, '<br>');
+
+  // Restore code blocks and inline code
+  codeBlocks.forEach((block, i) => {
+    html = html.replace(`__CODEBLOCK_${i}__`, block);
+  });
+  inlineCodes.forEach((code, i) => {
+    html = html.replace(`__INLINECODE_${i}__`, code);
+  });
 
   return html;
 }

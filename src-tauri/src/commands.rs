@@ -21,14 +21,28 @@ fn sanitize_path_component(s: &str) -> String {
         .collect()
 }
 
+fn validate_id(id: &str) -> Result<(), String> {
+    if id.is_empty() {
+        return Err("ID nao pode ser vazio".to_string());
+    }
+    if id.len() > 100 {
+        return Err("ID excede 100 caracteres".to_string());
+    }
+    if id.contains("..") || id.contains('/') || id.contains('\\') || id.contains('\0') {
+        return Err("ID contem caracteres invalidos".to_string());
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub fn get_notes(app: AppHandle, filter: Option<NoteFilter>) -> Vec<Note> {
     storage::list_notes(&app, filter)
 }
 
 #[tauri::command]
-pub fn get_note(app: AppHandle, id: String) -> Option<Note> {
-    storage::get_note(&app, &id)
+pub fn get_note(app: AppHandle, id: String) -> Result<Option<Note>, String> {
+    validate_id(&id)?;
+    Ok(storage::get_note(&app, &id))
 }
 
 #[tauri::command]
@@ -58,6 +72,7 @@ pub fn create_note(app: AppHandle, input: CreateNote) -> Result<Note, String> {
 
 #[tauri::command]
 pub fn update_note(app: AppHandle, input: UpdateNote) -> Result<Note, String> {
+    validate_id(&input.id)?;
     if let Some(ref title) = input.title {
         validate_string(title, 500, "Titulo")?;
     }
@@ -72,9 +87,7 @@ pub fn update_note(app: AppHandle, input: UpdateNote) -> Result<Note, String> {
     if let Some(content) = input.content {
         note.content = content;
     }
-    if let Some(category) = input.category {
-        note.category = Some(category);
-    }
+    note.category = input.category.and_then(|c| if c.is_empty() { None } else { Some(c) });
     if let Some(tags) = input.tags {
         note.tags = tags;
     }
@@ -88,11 +101,13 @@ pub fn update_note(app: AppHandle, input: UpdateNote) -> Result<Note, String> {
 
 #[tauri::command]
 pub fn delete_note(app: AppHandle, id: String) -> Result<(), String> {
+    validate_id(&id)?;
     storage::delete_note(&app, &id)
 }
 
 #[tauri::command]
 pub fn trash_note(app: AppHandle, id: String) -> Result<(), String> {
+    validate_id(&id)?;
     let mut note = storage::get_note(&app, &id).ok_or("Nota nao encontrada")?;
     note.trashed = true;
     note.trashed_at = Some(Utc::now().to_rfc3339());
@@ -102,6 +117,7 @@ pub fn trash_note(app: AppHandle, id: String) -> Result<(), String> {
 
 #[tauri::command]
 pub fn restore_note(app: AppHandle, id: String) -> Result<(), String> {
+    validate_id(&id)?;
     let mut note = storage::get_note(&app, &id).ok_or("Nota nao encontrada")?;
     note.trashed = false;
     note.trashed_at = None;
@@ -163,6 +179,7 @@ pub fn create_reminder(app: AppHandle, input: CreateReminder) -> Result<Reminder
 
 #[tauri::command]
 pub fn update_reminder(app: AppHandle, input: UpdateReminder) -> Result<Reminder, String> {
+    validate_id(&input.id)?;
     if let Some(ref title) = input.title {
         validate_string(title, 500, "Titulo")?;
     }
@@ -179,7 +196,20 @@ pub fn update_reminder(app: AppHandle, input: UpdateReminder) -> Result<Reminder
         reminder.description = Some(description);
     }
     if let Some(status) = input.status {
+        let valid_statuses = ["pending", "fired", "dismissed"];
+        if !valid_statuses.contains(&status.as_str()) {
+            return Err(format!("Status invalido: {}. Use: {:?}", status, valid_statuses));
+        }
         reminder.status = status;
+    }
+    if let Some(trigger_at) = input.trigger_at {
+        reminder.trigger_at = trigger_at;
+    }
+    if let Some(repeat) = input.repeat {
+        reminder.repeat = if repeat.is_empty() { None } else { Some(repeat) };
+    }
+    if let Some(relative_minutes) = input.relative_minutes {
+        reminder.relative_minutes = Some(relative_minutes);
     }
     storage::save_reminder(&app, &reminder)?;
     Ok(reminder)
@@ -187,11 +217,13 @@ pub fn update_reminder(app: AppHandle, input: UpdateReminder) -> Result<Reminder
 
 #[tauri::command]
 pub fn delete_reminder(app: AppHandle, id: String) -> Result<(), String> {
+    validate_id(&id)?;
     storage::delete_reminder(&app, &id)
 }
 
 #[tauri::command]
 pub fn dismiss_reminder(app: AppHandle, id: String) -> Result<(), String> {
+    validate_id(&id)?;
     let mut reminder =
         storage::get_reminder(&app, &id).ok_or("Lembrete nao encontrado")?;
     reminder.status = "dismissed".to_string();
@@ -200,6 +232,10 @@ pub fn dismiss_reminder(app: AppHandle, id: String) -> Result<(), String> {
 
 #[tauri::command]
 pub fn snooze_reminder(app: AppHandle, id: String, minutes: i64) -> Result<(), String> {
+    validate_id(&id)?;
+    if minutes < 1 || minutes > 10080 {
+        return Err("Snooze deve ser entre 1 minuto e 7 dias".to_string());
+    }
     let mut reminder =
         storage::get_reminder(&app, &id).ok_or("Lembrete nao encontrado")?;
     let trigger: chrono::DateTime<chrono::Utc> = reminder
@@ -232,6 +268,18 @@ pub fn get_tags(app: AppHandle) -> Vec<String> {
     storage::get_tags(&app)
 }
 
+#[derive(serde::Serialize)]
+pub struct CategoriesAndTags {
+    pub categories: Vec<String>,
+    pub tags: Vec<String>,
+}
+
+#[tauri::command]
+pub fn get_categories_and_tags(app: AppHandle) -> CategoriesAndTags {
+    let (categories, tags) = storage::get_categories_and_tags(&app);
+    CategoriesAndTags { categories, tags }
+}
+
 #[tauri::command]
 pub fn set_always_on_top(app: AppHandle, pinned: bool) -> Result<(), String> {
     if let Some(window) = app.get_webview_window("main") {
@@ -243,9 +291,19 @@ pub fn set_always_on_top(app: AppHandle, pinned: bool) -> Result<(), String> {
 #[tauri::command]
 pub fn save_image(app: AppHandle, base64_data: String, note_id: String) -> Result<String, String> {
     use base64::Engine;
+
+    const MAX_IMAGE_SIZE: usize = 20 * 1024 * 1024; // 20MB encoded
+    if base64_data.len() > MAX_IMAGE_SIZE {
+        return Err("Imagem excede 20MB".to_string());
+    }
+
     let data = base64::engine::general_purpose::STANDARD
         .decode(&base64_data)
         .map_err(|e| e.to_string())?;
+
+    if data.len() > 15 * 1024 * 1024 {
+        return Err("Imagem decodificada excede 15MB".to_string());
+    }
 
     let safe_id = sanitize_path_component(&note_id);
     let dir = app
@@ -260,7 +318,8 @@ pub fn save_image(app: AppHandle, base64_data: String, note_id: String) -> Resul
     let path = dir.join(&filename);
     fs::write(&path, &data).map_err(|e| e.to_string())?;
 
-    Ok(path.to_string_lossy().to_string())
+    // Return only filename, not full path (avoids leaking filesystem structure)
+    Ok(filename)
 }
 
 #[tauri::command]
@@ -282,7 +341,7 @@ pub fn update_shortcut(app: AppHandle, shortcut_str: String) -> Result<(), Strin
 
 #[tauri::command]
 pub fn export_data(app: AppHandle) -> Result<String, String> {
-    let notes = storage::list_notes(&app, None);
+    let notes = storage::list_all_notes(&app);
     let reminders = storage::list_reminders(&app, None);
     let config = storage::load_config(&app);
 
@@ -299,32 +358,62 @@ pub fn export_data(app: AppHandle) -> Result<String, String> {
 
 #[tauri::command]
 pub fn import_data(app: AppHandle, json_data: String) -> Result<String, String> {
+    const MAX_IMPORT_SIZE: usize = 50 * 1024 * 1024; // 50MB
+    if json_data.len() > MAX_IMPORT_SIZE {
+        return Err("Arquivo de importacao excede 50MB".to_string());
+    }
+
     let data: serde_json::Value =
         serde_json::from_str(&json_data).map_err(|e| format!("JSON invalido: {}", e))?;
 
     let mut imported_notes = 0;
     let mut imported_reminders = 0;
+    let mut skipped = 0;
 
     if let Some(notes) = data["notes"].as_array() {
         for note_value in notes {
-            if let Ok(note) = serde_json::from_value::<Note>(note_value.clone()) {
-                storage::save_note(&app, &note)?;
-                imported_notes += 1;
+            match serde_json::from_value::<Note>(note_value.clone()) {
+                Ok(note) => {
+                    if validate_id(&note.id).is_err() {
+                        skipped += 1;
+                        continue;
+                    }
+                    validate_string(&note.title, 500, "Titulo (import)").map_err(|e| format!("Nota '{}': {}", note.id, e))?;
+                    if note.content.len() > 100_000 {
+                        return Err(format!("Nota '{}' conteudo excede 100k caracteres", note.id));
+                    }
+                    storage::save_note(&app, &note)?;
+                    imported_notes += 1;
+                }
+                Err(_) => skipped += 1,
             }
         }
     }
 
     if let Some(reminders) = data["reminders"].as_array() {
         for reminder_value in reminders {
-            if let Ok(reminder) = serde_json::from_value::<Reminder>(reminder_value.clone()) {
-                storage::save_reminder(&app, &reminder)?;
-                imported_reminders += 1;
+            match serde_json::from_value::<Reminder>(reminder_value.clone()) {
+                Ok(reminder) => {
+                    if validate_id(&reminder.id).is_err() {
+                        skipped += 1;
+                        continue;
+                    }
+                    validate_string(&reminder.title, 500, "Titulo (import)").map_err(|e| format!("Lembrete '{}': {}", reminder.id, e))?;
+                    storage::save_reminder(&app, &reminder)?;
+                    imported_reminders += 1;
+                }
+                Err(_) => skipped += 1,
             }
         }
     }
 
-    Ok(format!(
+    let msg = format!(
         "Importadas {} notas e {} lembretes",
         imported_notes, imported_reminders
-    ))
+    );
+    if skipped > 0 {
+        Ok(format!("{} ({} itens ignorados)", msg, skipped))
+    } else {
+        Ok(msg)
+    }
 }

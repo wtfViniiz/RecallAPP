@@ -56,6 +56,7 @@ fn main() {
             commands::update_config,
             commands::get_categories,
             commands::get_tags,
+            commands::get_categories_and_tags,
             commands::set_always_on_top,
             commands::save_image,
             commands::update_shortcut,

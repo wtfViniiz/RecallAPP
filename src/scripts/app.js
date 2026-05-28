@@ -22,11 +22,17 @@ function updatePinVisual() {
 }
 
 pinBtn.addEventListener('click', async () => {
-  isPinned = !isPinned;
-  updatePinVisual();
+  const newState = !isPinned;
   try {
-    await api.setAlwaysOnTop(isPinned);
-  } catch (e) {}
+    await api.setAlwaysOnTop(newState);
+    isPinned = newState;
+    updatePinVisual();
+  } catch (e) {
+    showToast('Erro ao fixar janela', 'error');
+    // Revert visual on failure
+    isPinned = !newState;
+    updatePinVisual();
+  }
 });
 
 updatePinVisual();
@@ -42,17 +48,25 @@ async function applyTheme() {
 }
 
 // Tab switching
+let notesModule = null;
+
 tabs.forEach(tab => {
   tab.addEventListener('click', async () => {
     const target = tab.dataset.tab;
+
+    // Flush pending saves before leaving notes
+    if (notesModule) {
+      await notesModule.flushPendingSave();
+    }
+
     tabs.forEach(t => t.classList.remove('active'));
     views.forEach(v => v.classList.remove('active'));
     tab.classList.add('active');
     document.getElementById(`view-${target}`).classList.add('active');
 
     if (target === 'notes') {
-      const { initNotes } = await import('./notes.js');
-      initNotes();
+      notesModule = await import('./notes.js');
+      notesModule.initNotes();
     }
     if (target === 'reminders') {
       const { initReminders } = await import('./reminders.js');
@@ -123,7 +137,7 @@ document.addEventListener('keydown', async (e) => {
     document.getElementById('quick-capture-save').addEventListener('click', async () => {
       const content = input.value.trim();
       if (content) {
-        await api.createNote({ title: content.split('\\n')[0].slice(0, 50), content, tags: ['rascunho'] });
+        await api.createNote({ title: content.split('\n')[0].slice(0, 50), content, tags: ['rascunho'] });
         showToast('Nota rapida salva', 'success');
       }
       document.querySelector('[data-tab="notes"]').click();

@@ -1,5 +1,5 @@
 import { api } from './api.js';
-import { formatDateTime, formatRelativeDate, escapeHtml, showToast } from './utils.js';
+import { formatDateTime, formatRelativeDate, escapeHtml, showToast, showConfirm } from './utils.js';
 
 let currentReminder = null;
 
@@ -191,10 +191,12 @@ async function openReminderForm(reminder) {
   document.getElementById('btn-save-reminder').addEventListener('click', saveReminder);
 
   if (reminder) {
-    document.getElementById('btn-delete-reminder').addEventListener('click', async () => {
-      await api.deleteReminder(reminder.id);
-      showToast('Lembrete excluido', 'success');
-      renderRemindersList();
+    document.getElementById('btn-delete-reminder').addEventListener('click', () => {
+      showConfirm('Excluir este lembrete?', async () => {
+        await api.deleteReminder(reminder.id);
+        showToast('Lembrete excluido', 'success');
+        renderRemindersList();
+      });
     });
   }
 
@@ -210,19 +212,32 @@ async function saveReminder() {
 
   const description = document.getElementById('reminder-desc').value.trim() || null;
 
-  // If editing, just update title and description
+  // If editing, update all fields
   if (currentReminder) {
+    const updateData = { id: currentReminder.id, title, description };
+
+    const type = document.querySelector('input[name="reminder-type"]:checked')?.value;
+    if (type === 'datetime') {
+      const dt = document.getElementById('reminder-datetime').value;
+      if (dt) updateData.trigger_at = new Date(dt).toISOString();
+    } else if (type === 'recurrence') {
+      const dt = document.getElementById('reminder-datetime').value;
+      if (dt) {
+        updateData.trigger_at = new Date(dt).toISOString();
+        updateData.repeat = document.getElementById('reminder-repeat').value;
+      }
+    } else {
+      const minutes = parseInt(document.getElementById('reminder-minutes').value);
+      if (minutes && minutes >= 1) updateData.relative_minutes = minutes;
+    }
+
     try {
-      await api.updateReminder({
-        id: currentReminder.id,
-        title,
-        description,
-      });
+      await api.updateReminder(updateData);
       showToast('Lembrete atualizado', 'success');
+      renderRemindersList();
     } catch (e) {
       showToast('Erro ao atualizar', 'error');
     }
-    renderRemindersList();
     return;
   }
 
@@ -257,7 +272,8 @@ async function saveReminder() {
 
 async function renderCalendarView() {
   const container = document.getElementById('view-reminders');
-  const reminders = await api.getReminders();
+  const allReminders = await api.getReminders();
+  const reminders = allReminders.filter(r => r.status === 'pending');
 
   const now = new Date();
   const year = now.getFullYear();
@@ -329,8 +345,8 @@ async function renderCalendarView() {
       const day = parseInt(dayEl.dataset.day);
       const dayReminders = remindersByDay[day] || [];
       if (dayReminders.length > 0) {
-        const list = dayReminders.map(r => `- ${r.title}`).join('\n');
-        showToast(`${day}/${month + 1}: ${dayReminders.length} lembrete(s)`, 'info');
+        const titles = dayReminders.map(r => r.title).join(', ');
+        showToast(`${day}/${month + 1}: ${titles}`, 'info', 5000);
       }
     });
   });

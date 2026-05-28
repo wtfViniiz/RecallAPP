@@ -31,16 +31,6 @@ export async function initSettings() {
         <span class="slider"></span>
       </label>
     </div>
-    <div class="form-group" style="display:flex; justify-content:space-between; align-items:center;">
-      <label style="margin:0">Verificar atualizacoes</label>
-      <label class="toggle">
-        <input type="checkbox" id="setting-updates" ${config.check_updates ? 'checked' : ''}>
-        <span class="slider"></span>
-      </label>
-    </div>
-    <div class="form-group">
-      <button class="btn btn-secondary" id="btn-check-updates">Verificar atualizacoes agora</button>
-    </div>
     <div class="form-group">
       <label>Backup</label>
       <div style="display: flex; gap: 8px;">
@@ -70,22 +60,14 @@ export async function initSettings() {
     const theme = document.querySelector('input[name="theme"]:checked').value;
     const shortcut = document.getElementById('setting-shortcut').value;
     const autostart = document.getElementById('setting-autostart').checked;
-    const check_updates = document.getElementById('setting-updates').checked;
 
-    try {
-      await api.updateShortcut(shortcut);
-    } catch (e) {
-      console.error('Failed to update shortcut:', e);
-      showToast('Atalho invalido ou ja em uso', 'error');
-      return;
-    }
-
+    // Save config first (independent of shortcut)
     try {
       await api.updateConfig({
         theme,
         shortcut,
         autostart,
-        check_updates,
+        check_updates: false,
         window_width: config.window_width,
         window_height: config.window_height,
       });
@@ -95,22 +77,27 @@ export async function initSettings() {
       return;
     }
 
-    document.body.className = theme;
-    showToast('Configuracoes salvas', 'success');
-  });
-
-  // Check updates button
-  document.getElementById('btn-check-updates').addEventListener('click', async () => {
+    // Then update shortcut (may fail if invalid/in-use)
     try {
-      const update = await window.__TAURI_INTERNALS__.invoke('plugin:updater|check');
-      if (update && update.available) {
-        showToast(`Atualizacao disponivel: v${update.version}`, 'info');
+      await api.updateShortcut(shortcut);
+    } catch (e) {
+      console.error('Failed to update shortcut:', e);
+      showToast('Config salvas, mas atalho invalido ou ja em uso', 'warning');
+    }
+
+    // Toggle autostart registration
+    try {
+      if (autostart) {
+        await window.__TAURI_INTERNALS__.invoke('plugin:autostart|enable');
       } else {
-        showToast('Nenhuma atualizacao disponivel', 'info');
+        await window.__TAURI_INTERNALS__.invoke('plugin:autostart|disable');
       }
     } catch (e) {
-      showToast('Erro ao verificar atualizacoes', 'error');
+      console.error('Autostart toggle error:', e);
     }
+
+    document.body.className = theme;
+    showToast('Configuracoes salvas', 'success');
   });
 
   // Export button
@@ -123,7 +110,8 @@ export async function initSettings() {
       a.href = url;
       a.download = `recall-backup-${new Date().toISOString().slice(0,10)}.json`;
       a.click();
-      URL.revokeObjectURL(url);
+      // Revoke after delay to ensure download starts
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
       showToast('Dados exportados', 'success');
     } catch (e) {
       showToast('Erro ao exportar', 'error');
@@ -144,7 +132,7 @@ export async function initSettings() {
       const result = await api.importData(text);
       showToast(result, 'success');
     } catch (err) {
-      showToast('Erro ao importar: ' + err, 'error');
+      showToast('Erro ao importar: ' + (err.message || err), 'error');
     }
     e.target.value = '';
   });
