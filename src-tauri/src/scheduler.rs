@@ -68,8 +68,15 @@ fn check_and_fire(app: &AppHandle, cache: &NoteCache) {
             // Handle recurrence
             if let Some(ref repeat) = reminder.repeat {
                 let next = match repeat.as_str() {
-                    "daily" => trigger + chrono::Duration::days(1),
-                    "weekly" => trigger + chrono::Duration::weeks(1),
+                    "daily" => {
+                        // Preserve local time across DST transitions
+                        let naive = trigger.naive_utc() + chrono::Duration::days(1);
+                        chrono::DateTime::from_naive_utc_and_offset(naive, *trigger.offset())
+                    },
+                    "weekly" => {
+                        let naive = trigger.naive_utc() + chrono::Duration::weeks(1);
+                        chrono::DateTime::from_naive_utc_and_offset(naive, *trigger.offset())
+                    },
                     "monthly" => {
                         let (new_year, new_month) = if trigger.month() == 12 {
                             (trigger.year() + 1, 1)

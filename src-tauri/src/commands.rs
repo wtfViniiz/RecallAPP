@@ -615,6 +615,32 @@ pub fn import_data(app: AppHandle, cache: State<'_, NoteCache>, json_data: Strin
                     }
                     validate_string(&reminder.title, 500, "Titulo (import)")
                         .map_err(|e| format!("Lembrete '{}': {}", reminder.id, e))?;
+                    if let Some(ref desc) = reminder.description {
+                        validate_string(desc, 2000, "Descricao (import)")
+                            .map_err(|e| format!("Lembrete '{}': {}", reminder.id, e))?;
+                    }
+                    let valid_statuses = ["pending", "fired", "dismissed"];
+                    if !valid_statuses.contains(&reminder.status.as_str()) {
+                        return Err(format!(
+                            "Lembrete '{}': status invalido '{}'. Use: {:?}",
+                            reminder.id, reminder.status, valid_statuses
+                        ));
+                    }
+                    if let Some(ref repeat) = reminder.repeat {
+                        let valid_repeats = ["daily", "weekly", "monthly"];
+                        if !valid_repeats.contains(&repeat.as_str()) {
+                            return Err(format!(
+                                "Lembrete '{}': repeat invalido '{}'. Use: {:?}",
+                                reminder.id, repeat, valid_repeats
+                            ));
+                        }
+                    }
+                    if let Err(e) = chrono::DateTime::parse_from_rfc3339(&reminder.trigger_at) {
+                        return Err(format!(
+                            "Lembrete '{}': trigger_at invalido '{}': {}",
+                            reminder.id, reminder.trigger_at, e
+                        ));
+                    }
                     cache.save_reminder(&app, &reminder)?;
                     imported_reminders += 1;
                 }
