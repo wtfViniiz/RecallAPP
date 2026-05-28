@@ -334,6 +334,16 @@ function openEditor(note) {
         </div>
       </div>
     </div>
+    <div class="markdown-toolbar" id="markdown-toolbar">
+      <button type="button" class="toolbar-btn" data-action="bold" title="Negrito (Ctrl+B)"><strong>B</strong></button>
+      <button type="button" class="toolbar-btn" data-action="italic" title="Italico (Ctrl+I)"><em>I</em></button>
+      <button type="button" class="toolbar-btn" data-action="heading" title="Titulo">H</button>
+      <button type="button" class="toolbar-btn" data-action="code" title="Codigo">&lt;/&gt;</button>
+      <button type="button" class="toolbar-btn" data-action="link" title="Link">&#128279;</button>
+      <button type="button" class="toolbar-btn" data-action="list" title="Lista">&#8226;</button>
+      <button type="button" class="toolbar-btn" data-action="quote" title="Citacao">&#8220;</button>
+      <button type="button" class="toolbar-btn" data-action="strikethrough" title="Tachado"><s>S</s></button>
+    </div>
     <div class="editor-wrapper" id="editor-wrapper">
       <div class="line-numbers" id="line-numbers"></div>
       <div class="editor-container">
@@ -364,6 +374,73 @@ function openEditor(note) {
   contentInput.addEventListener('input', updateLineNumbers);
   contentInput.addEventListener('scroll', () => {
     lineNumbers.scrollTop = contentInput.scrollTop;
+  });
+
+  // Markdown toolbar
+  function insertMarkdown(action) {
+    const start = contentInput.selectionStart;
+    const end = contentInput.selectionEnd;
+    const selected = contentInput.value.substring(start, end);
+    let before = '', after = '', replacement = '';
+
+    switch (action) {
+      case 'bold':
+        before = '**'; after = '**';
+        replacement = selected || 'negrito';
+        break;
+      case 'italic':
+        before = '*'; after = '*';
+        replacement = selected || 'italico';
+        break;
+      case 'heading':
+        before = '### ';
+        replacement = selected || 'Titulo';
+        break;
+      case 'code':
+        if (selected.includes('\n')) {
+          before = '```\n'; after = '\n```';
+        } else {
+          before = '`'; after = '`';
+        }
+        replacement = selected || 'codigo';
+        break;
+      case 'link':
+        before = '['; after = '](url)';
+        replacement = selected || 'texto';
+        break;
+      case 'list':
+        before = '- ';
+        replacement = selected || 'item';
+        break;
+      case 'quote':
+        before = '> ';
+        replacement = selected || 'citacao';
+        break;
+      case 'strikethrough':
+        before = '~~'; after = '~~';
+        replacement = selected || 'tachado';
+        break;
+    }
+
+    const newText = before + replacement + after;
+    contentInput.setRangeText(newText, start, end, 'end');
+    contentInput.focus();
+    contentInput.dispatchEvent(new Event('input'));
+  }
+
+  document.getElementById('markdown-toolbar').addEventListener('click', (e) => {
+    const btn = e.target.closest('.toolbar-btn');
+    if (btn) {
+      insertMarkdown(btn.dataset.action);
+    }
+  });
+
+  // Keyboard shortcuts for formatting
+  contentInput.addEventListener('keydown', (e) => {
+    if (e.ctrlKey || e.metaKey) {
+      if (e.key === 'b') { e.preventDefault(); insertMarkdown('bold'); }
+      if (e.key === 'i') { e.preventDefault(); insertMarkdown('italic'); }
+    }
   });
 
   const autoSave = () => {
