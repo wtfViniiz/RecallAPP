@@ -17,6 +17,7 @@ fn main() {
         ))
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .setup(|app| {
             tray::setup_tray(app)?;
             scheduler::start_scheduler(app.handle().clone());
