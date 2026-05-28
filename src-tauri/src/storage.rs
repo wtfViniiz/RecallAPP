@@ -295,6 +295,9 @@ pub fn list_note_versions_at(data_dir: &Path, note_id: &str) -> Vec<NoteVersion>
         .flatten()
         .filter_map(|entry| {
             let entry = entry.ok()?;
+            if entry.path().extension().map_or(false, |e| e == "tmp") {
+                return None;
+            }
             let content = fs::read_to_string(entry.path()).ok()?;
             serde_json::from_str(&content).ok()
         })

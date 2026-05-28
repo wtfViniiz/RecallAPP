@@ -99,9 +99,13 @@ pub fn update_note(app: AppHandle, cache: State<'_, NoteCache>, input: UpdateNot
     }
 
     let note = cache.get_note(&app, &input.id).ok_or("Nota nao encontrada")?;
-    // Save version snapshot before updating (non-fatal)
-    if let Err(e) = storage::save_note_version(&app, &note) {
-        eprintln!("[Recall] Aviso: falha ao salvar versao: {}", e);
+    // Save version snapshot only when content changes (skip for position/pinned-only updates)
+    let has_content_change = input.title.is_some() || input.content.is_some()
+        || input.category.is_some() || input.tags.is_some();
+    if has_content_change {
+        if let Err(e) = storage::save_note_version(&app, &note) {
+            eprintln!("[Recall] Aviso: falha ao salvar versao: {}", e);
+        }
     }
     let mut note = note;
     if let Some(title) = input.title {
@@ -463,7 +467,9 @@ pub fn save_image(
     let path = dir.join(&filename);
     fs::write(&path, &data).map_err(|e| e.to_string())?;
 
-    Ok(filename)
+    // Return absolute path so WebView can resolve the image
+    let abs_path = path.to_string_lossy().to_string();
+    Ok(abs_path)
 }
 
 #[tauri::command]

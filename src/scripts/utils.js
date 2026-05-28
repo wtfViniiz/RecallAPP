@@ -96,7 +96,14 @@ export function showConfirm(message, onConfirm) {
   toast.appendChild(msg);
   toast.appendChild(actions);
   container.appendChild(toast);
-  // Confirm toasts do not auto-dismiss — user must click Confirm or Cancel
+
+  // Auto-dismiss after 30s as cancel
+  setTimeout(() => {
+    if (toast.parentNode) {
+      toast.style.animation = 'slideIn 0.2s ease-out reverse';
+      setTimeout(() => toast.remove(), 200);
+    }
+  }, 30000);
 }
 
 // Lightweight markdown renderer
@@ -178,7 +185,7 @@ export function htmlToMarkdown(html) {
 
   // Preserve code blocks
   const codeBlocks = [];
-  md = md.replace(/<pre><code>([\s\S]*?)<\/code><\/pre>/gi, (_, code) => {
+  md = md.replace(/<pre><code[^>]*>([\s\S]*?)<\/code><\/pre>/gi, (_, code) => {
     const placeholder = `__CB_${codeBlocks.length}__`;
     codeBlocks.push(code);
     return placeholder;
@@ -186,7 +193,7 @@ export function htmlToMarkdown(html) {
 
   // Inline code
   const inlineCodes = [];
-  md = md.replace(/<code>([^<]+)<\/code>/gi, (_, code) => {
+  md = md.replace(/<code[^>]*>([^<]+)<\/code>/gi, (_, code) => {
     const placeholder = `__IC_${inlineCodes.length}__`;
     inlineCodes.push(code);
     return placeholder;

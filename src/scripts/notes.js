@@ -1,9 +1,10 @@
 import { api } from './api.js';
-import { formatDate, formatDateTime, escapeHtml, showToast, showConfirm, renderMarkdown, htmlToMarkdown, markdownToHtml, DEFAULT_CATEGORIES, DEFAULT_TAGS, NOTE_TEMPLATES } from './utils.js';
+import { formatDate, formatDateTime, escapeHtml, sanitizeUrl, showToast, showConfirm, renderMarkdown, htmlToMarkdown, markdownToHtml, DEFAULT_CATEGORIES, DEFAULT_TAGS, NOTE_TEMPLATES } from './utils.js';
 
 let currentView = 'list';
 let currentNote = null;
 let draggedCard = null;
+let allLoadedNotes = [];
 let allCategories = [...DEFAULT_CATEGORIES];
 let allTags = [...DEFAULT_TAGS];
 let saveTimeout = null;
@@ -31,10 +32,6 @@ function setupGlobalKeyListeners() {
   keyListenersAttached = true;
 
   document.addEventListener('keydown', (e) => {
-    if (e.ctrlKey && e.key === 'n' && currentView === 'list') {
-      e.preventDefault();
-      openEditor(null);
-    }
     if (e.ctrlKey && e.key === 's' && currentView === 'editor') {
       e.preventDefault();
       saveNote(false);
@@ -206,6 +203,7 @@ async function loadNotes(append = false) {
 
   if (!append && notes.length === 0) {
     list.innerHTML = '<div class="empty">Nenhuma nota encontrada</div>';
+    allLoadedNotes = [];
     return;
   }
 
@@ -215,12 +213,14 @@ async function loadNotes(append = false) {
     const existingBtn = list.querySelector('.load-more-container');
     if (existingBtn) existingBtn.remove();
     list.insertAdjacentHTML('beforeend', cardsHtml);
+    allLoadedNotes = allLoadedNotes.concat(notes);
   } else {
     list.innerHTML = cardsHtml;
+    allLoadedNotes = notes;
   }
 
   notesOffset += notes.length;
-  attachNoteCardHandlers(list, notes);
+  attachNoteCardHandlers(list, allLoadedNotes);
 
   if (notesOffset < total) {
     const loadMoreHtml = '<div class="load-more-container"><button class="btn btn-secondary" id="btn-load-more">Carregar mais</button></div>';
@@ -584,22 +584,26 @@ function openEditor(note) {
         const urlInput = urlContainer.querySelector('input');
         urlInput.focus();
         urlInput.select();
+        let finished = false;
         const finishLink = () => {
-          const url = urlInput.value.trim();
-          if (url && url !== 'https://') {
+          if (finished) return;
+          finished = true;
+          const url = sanitizeUrl(urlInput.value.trim());
+          if (url && url !== 'about:blank') {
             const a = document.createElement('a');
             a.href = url;
             a.textContent = selected || 'link';
             a.target = '_blank';
+            a.rel = 'noopener noreferrer';
             urlContainer.replaceWith(a);
           } else {
-            urlContainer.replaceWith(selected || 'link');
+            urlContainer.replaceWith(document.createTextNode(selected || 'link'));
           }
         };
         urlInput.addEventListener('blur', finishLink);
         urlInput.addEventListener('keydown', (evt) => {
           if (evt.key === 'Enter') { evt.preventDefault(); finishLink(); }
-          if (evt.key === 'Escape') { urlContainer.replaceWith(selected || 'link'); }
+          if (evt.key === 'Escape') { finished = true; urlContainer.replaceWith(document.createTextNode(selected || 'link')); }
         });
       }
     }

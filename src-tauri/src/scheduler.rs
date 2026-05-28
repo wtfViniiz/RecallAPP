@@ -71,11 +71,13 @@ fn check_and_fire(app: &AppHandle, cache: &NoteCache) {
                     "daily" => trigger + chrono::Duration::days(1),
                     "weekly" => trigger + chrono::Duration::weeks(1),
                     "monthly" => {
-                        let months = trigger.month();
-                        let years = trigger.year() + ((months + 12 - 1) / 12 - 1) as i32;
-                        let new_month = ((months) % 12) + 1;
-                        let day = trigger.day().min(days_in_month(years, new_month));
-                        chrono::NaiveDate::from_ymd_opt(years, new_month, day)
+                        let (new_year, new_month) = if trigger.month() == 12 {
+                            (trigger.year() + 1, 1)
+                        } else {
+                            (trigger.year(), trigger.month() + 1)
+                        };
+                        let day = trigger.day().min(days_in_month(new_year, new_month));
+                        chrono::NaiveDate::from_ymd_opt(new_year, new_month, day)
                             .and_then(|d| d.and_hms_opt(trigger.hour(), trigger.minute(), trigger.second()))
                             .map(|dt| chrono::DateTime::from_naive_utc_and_offset(dt, *trigger.offset()))
                             .unwrap_or(trigger + chrono::Duration::days(30))
