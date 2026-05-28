@@ -3,8 +3,10 @@ import { initReminders } from './reminders.js';
 import { initSettings } from './settings.js';
 import { api } from './api.js';
 
-const { getCurrentWindow } = window.__TAURI__.window;
-const win = getCurrentWindow();
+let win = null;
+try {
+  win = window.__TAURI__?.window?.getCurrentWindow?.() || null;
+} catch (e) {}
 
 const tabs = document.querySelectorAll('.tab');
 const views = document.querySelectorAll('.view');
@@ -59,7 +61,7 @@ tabs.forEach(tab => {
 
 // Escape to hide window (only if not pinned)
 document.addEventListener('keydown', async (e) => {
-  if (e.key === 'Escape' && !isPinned) {
+  if (e.key === 'Escape' && !isPinned && win) {
     try {
       await win.hide();
     } catch (err) {}
@@ -69,7 +71,7 @@ document.addEventListener('keydown', async (e) => {
 // Click outside to hide (only if not pinned)
 document.addEventListener('mousedown', async (e) => {
   const appEl = document.getElementById('app');
-  if (!appEl.contains(e.target) && !isPinned) {
+  if (!appEl.contains(e.target) && !isPinned && win) {
     try {
       await win.hide();
     } catch (err) {}
