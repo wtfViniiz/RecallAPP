@@ -4,11 +4,6 @@ import { initSettings } from './settings.js';
 import { api } from './api.js';
 import { showToast } from './utils.js';
 
-let win = null;
-try {
-  win = window.__TAURI__?.window?.getCurrentWindow?.() || null;
-} catch (e) {}
-
 const tabs = document.querySelectorAll('.tab');
 const views = document.querySelectorAll('.view');
 let isPinned = false;
@@ -17,7 +12,9 @@ async function applyTheme() {
   try {
     const config = await api.getConfig();
     document.body.className = config.theme;
-  } catch (e) {}
+  } catch (e) {
+    console.error('Theme error:', e);
+  }
 }
 
 // Pin window button
@@ -27,11 +24,11 @@ const pinIcon = pinBtn.querySelector('.pin-icon');
 function updatePinVisual() {
   if (isPinned) {
     pinBtn.classList.add('active');
-    pinIcon.innerHTML = '&#9733;'; // Filled star
+    pinIcon.innerHTML = '&#9733;';
     pinBtn.title = 'Desafixar';
   } else {
     pinBtn.classList.remove('active');
-    pinIcon.innerHTML = '&#9734;'; // Outline star
+    pinIcon.innerHTML = '&#9734;';
     pinBtn.title = 'Fixar em primeiro plano';
   }
 }
@@ -41,7 +38,9 @@ pinBtn.addEventListener('click', async () => {
   updatePinVisual();
   try {
     await api.setAlwaysOnTop(isPinned);
-  } catch (e) {}
+  } catch (e) {
+    console.error('Pin error:', e);
+  }
 });
 
 updatePinVisual();
@@ -60,21 +59,21 @@ tabs.forEach(tab => {
   });
 });
 
-// Escape to hide window (only if not pinned)
+// Escape to hide window
 document.addEventListener('keydown', async (e) => {
-  if (e.key === 'Escape' && !isPinned && win) {
+  if (e.key === 'Escape' && !isPinned) {
     try {
-      await win.hide();
+      await window.__TAURI_INTERNALS__.invoke('plugin:window|set_visible', { visible: false });
     } catch (err) {}
   }
 });
 
-// Click outside to hide (only if not pinned)
+// Click outside to hide
 document.addEventListener('mousedown', async (e) => {
   const appEl = document.getElementById('app');
-  if (!appEl.contains(e.target) && !isPinned && win) {
+  if (!appEl.contains(e.target) && !isPinned) {
     try {
-      await win.hide();
+      await window.__TAURI_INTERNALS__.invoke('plugin:window|set_visible', { visible: false });
     } catch (err) {}
   }
 });
@@ -105,7 +104,6 @@ document.addEventListener('keydown', async (e) => {
 });
 
 function showQuickCapture() {
-  // Switch to notes tab
   tabs.forEach(t => t.classList.remove('active'));
   views.forEach(v => v.classList.remove('active'));
   document.querySelector('[data-tab="notes"]').classList.add('active');
