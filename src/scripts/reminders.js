@@ -1,11 +1,14 @@
 import { api } from './api.js';
 import { formatDateTime, formatRelativeDate, escapeHtml, showToast } from './utils.js';
 
+let currentReminder = null;
+
 export async function initReminders() {
   await renderRemindersList();
 }
 
 async function renderRemindersList() {
+  currentReminder = null;
   const container = document.getElementById('view-reminders');
 
   container.innerHTML = `
@@ -69,6 +72,7 @@ async function loadReminders() {
 }
 
 function openReminderForm(reminder) {
+  currentReminder = reminder;
   const container = document.getElementById('view-reminders');
 
   container.innerHTML = `
@@ -163,8 +167,25 @@ async function saveReminder() {
   }
 
   const description = document.getElementById('reminder-desc').value.trim() || null;
-  const type = document.querySelector('input[name="reminder-type"]:checked').value;
 
+  // If editing, just update title and description
+  if (currentReminder) {
+    try {
+      await api.updateReminder({
+        id: currentReminder.id,
+        title,
+        description,
+      });
+      showToast('Lembrete atualizado', 'success');
+    } catch (e) {
+      showToast('Erro ao atualizar', 'error');
+    }
+    renderRemindersList();
+    return;
+  }
+
+  // Creating new reminder
+  const type = document.querySelector('input[name="reminder-type"]:checked').value;
   const input = { title, description };
 
   if (type === 'datetime') {
@@ -182,7 +203,11 @@ async function saveReminder() {
     input.relative_minutes = minutes;
   }
 
-  await api.createReminder(input);
-  showToast('Lembrete criado', 'success');
+  try {
+    await api.createReminder(input);
+    showToast('Lembrete criado', 'success');
+  } catch (e) {
+    showToast('Erro ao criar lembrete', 'error');
+  }
   renderRemindersList();
 }

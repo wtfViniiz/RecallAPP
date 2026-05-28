@@ -31,5 +31,5 @@ export const api = {
   setAlwaysOnTop: (pinned) => invoke('set_always_on_top', { pinned }),
 
   // Images
-  saveImage: (data, noteId) => invoke('save_image', { data, noteId }),
+  saveImage: (base64Data, noteId) => invoke('save_image', { base64_data: base64Data, note_id: noteId }),
 };

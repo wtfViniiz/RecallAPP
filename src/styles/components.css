@@ -483,3 +483,11 @@
   );
   background-attachment: local;
 }
+
+/* Search highlight */
+mark {
+  background: var(--warning);
+  color: #000;
+  border-radius: 2px;
+  padding: 0 2px;
+}

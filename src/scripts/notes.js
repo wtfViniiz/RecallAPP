@@ -6,12 +6,31 @@ let currentNote = null;
 let allCategories = [...DEFAULT_CATEGORIES];
 let allTags = [...DEFAULT_TAGS];
 let saveTimeout = null;
+let keyListenersAttached = false;
 
 export async function initNotes() {
+  setupGlobalKeyListeners();
   await renderNotesList();
 }
 
+function setupGlobalKeyListeners() {
+  if (keyListenersAttached) return;
+  keyListenersAttached = true;
+
+  document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.key === 'n' && currentView === 'list') {
+      e.preventDefault();
+      openEditor(null);
+    }
+    if (e.ctrlKey && e.key === 's' && currentView === 'editor') {
+      e.preventDefault();
+      saveNote(false);
+    }
+  });
+}
+
 async function renderNotesList() {
+  currentView = 'list';
   const container = document.getElementById('view-notes');
 
   container.innerHTML = `
@@ -47,13 +66,6 @@ async function renderNotesList() {
   document.getElementById('filter-tag').addEventListener('change', loadNotes);
   document.getElementById('btn-new-note').addEventListener('click', () => openEditor(null));
 
-  document.addEventListener('keydown', (e) => {
-    if (e.ctrlKey && e.key === 'n' && currentView === 'list') {
-      e.preventDefault();
-      openEditor(null);
-    }
-  });
-
   await loadNotes();
 }
 
@@ -75,10 +87,12 @@ async function loadNotes() {
     return;
   }
 
+  const searchQuery = search;
+
   list.innerHTML = notes.map(note => `
     <div class="card ${note.pinned ? 'pinned' : ''}" data-id="${note.id}">
       <div class="card-header">
-        <div class="card-title">${escapeHtml(note.title || 'Sem titulo')}</div>
+        <div class="card-title">${highlightMatch(note.title || 'Sem titulo', searchQuery)}</div>
         <button class="btn-icon delete-note-btn" data-id="${note.id}" title="Excluir">&#128465;</button>
       </div>
       <div class="card-meta">
@@ -89,7 +103,6 @@ async function loadNotes() {
     </div>
   `).join('');
 
-  // Click to open note
   list.querySelectorAll('.card').forEach(card => {
     card.addEventListener('click', (e) => {
       if (e.target.closest('.delete-note-btn')) return;
@@ -98,7 +111,6 @@ async function loadNotes() {
     });
   });
 
-  // Delete buttons
   list.querySelectorAll('.delete-note-btn').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
@@ -108,6 +120,13 @@ async function loadNotes() {
       await loadNotes();
     });
   });
+}
+
+function highlightMatch(text, query) {
+  if (!query) return escapeHtml(text);
+  const escaped = escapeHtml(text);
+  const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+  return escaped.replace(regex, '<mark>$1</mark>');
 }
 
 function openEditor(note) {
@@ -166,7 +185,6 @@ function openEditor(note) {
   const contentInput = document.getElementById('note-content');
   const lineNumbers = document.getElementById('line-numbers');
 
-  // Update line numbers
   function updateLineNumbers() {
     const lines = contentInput.value.split('\n');
     lineNumbers.innerHTML = lines.map((_, i) => {
@@ -181,7 +199,6 @@ function openEditor(note) {
     lineNumbers.scrollTop = contentInput.scrollTop;
   });
 
-  // Auto-save
   const autoSave = () => {
     clearTimeout(saveTimeout);
     saveTimeout = setTimeout(() => saveNote(true), 1000);
@@ -190,7 +207,7 @@ function openEditor(note) {
   titleInput.addEventListener('input', autoSave);
   contentInput.addEventListener('input', autoSave);
 
-  // Image paste - base64 approach
+  // Image paste
   contentInput.addEventListener('paste', async (e) => {
     const items = e.clipboardData?.items;
     if (!items) return;
@@ -224,14 +241,12 @@ function openEditor(note) {
     }
   });
 
-  // Focus
   if (!note || !note.title) {
     titleInput.focus();
   } else {
     contentInput.focus();
   }
 
-  // Back button
   document.getElementById('btn-back').addEventListener('click', () => {
     clearTimeout(saveTimeout);
     saveNote(true).then(() => {
@@ -240,7 +255,6 @@ function openEditor(note) {
     });
   });
 
-  // Copy all
   document.getElementById('btn-copy-all').addEventListener('click', async () => {
     const content = contentInput.value;
     const title = titleInput.value;
@@ -253,7 +267,6 @@ function openEditor(note) {
     }
   });
 
-  // Pin in list
   if (note) {
     document.getElementById('btn-pin-note').addEventListener('click', async () => {
       await api.updateNote({ id: note.id, pinned: !note.pinned });
@@ -271,13 +284,6 @@ function openEditor(note) {
 
   setupChipInput('category-chips', 'note-category-input', allCategories, false);
   setupChipInput('tag-chips', 'note-tags-input', allTags, true);
-
-  document.addEventListener('keydown', (e) => {
-    if (e.ctrlKey && e.key === 's' && currentView === 'editor') {
-      e.preventDefault();
-      saveNote(false);
-    }
-  });
 }
 
 function setupChipInput(containerId, inputId, suggestions, allowMultiple) {

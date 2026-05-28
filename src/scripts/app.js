@@ -3,6 +3,9 @@ import { initReminders } from './reminders.js';
 import { initSettings } from './settings.js';
 import { api } from './api.js';
 
+const { getCurrentWindow } = window.__TAURI__.window;
+const win = getCurrentWindow();
+
 const tabs = document.querySelectorAll('.tab');
 const views = document.querySelectorAll('.view');
 let isPinned = false;
@@ -21,14 +24,12 @@ const pinIcon = pinBtn.querySelector('.pin-icon');
 function updatePinVisual() {
   if (isPinned) {
     pinBtn.classList.add('active');
-    pinIcon.innerHTML = '&#128204;'; // Filled pin
-    pinBtn.style.color = 'var(--accent)';
-    pinBtn.style.background = 'var(--bg-primary)';
+    pinIcon.innerHTML = '&#9733;'; // Filled star
+    pinBtn.title = 'Desafixar';
   } else {
     pinBtn.classList.remove('active');
-    pinIcon.innerHTML = '&#128204;'; // Outline pin
-    pinBtn.style.color = 'var(--text-secondary)';
-    pinBtn.style.background = 'none';
+    pinIcon.innerHTML = '&#9734;'; // Outline star
+    pinBtn.title = 'Fixar em primeiro plano';
   }
 }
 
@@ -60,7 +61,7 @@ tabs.forEach(tab => {
 document.addEventListener('keydown', async (e) => {
   if (e.key === 'Escape' && !isPinned) {
     try {
-      await window.__TAURI_INTERNALS__.invoke('plugin:window|set_visible', { visible: false });
+      await win.hide();
     } catch (err) {}
   }
 });
@@ -70,7 +71,7 @@ document.addEventListener('mousedown', async (e) => {
   const appEl = document.getElementById('app');
   if (!appEl.contains(e.target) && !isPinned) {
     try {
-      await window.__TAURI_INTERNALS__.invoke('plugin:window|set_visible', { visible: false });
+      await win.hide();
     } catch (err) {}
   }
 });
