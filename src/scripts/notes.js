@@ -89,10 +89,10 @@ async function renderNotesList() {
 
 function renderNoteCards(notes, searchQuery) {
   return notes.map(note => `
-    <div class="card ${note.pinned ? 'pinned' : ''}" data-id="${note.id}" draggable="true">
+    <div class="card ${note.pinned ? 'pinned' : ''}" data-id="${escapeHtml(note.id)}" draggable="true">
       <div class="card-header">
         <div class="card-title">${highlightMatch(note.title || 'Sem titulo', searchQuery)}</div>
-        <button class="btn-icon delete-note-btn" data-id="${note.id}" title="Excluir">&#128465;</button>
+        <button class="btn-icon delete-note-btn" data-id="${escapeHtml(note.id)}" title="Excluir">&#128465;</button>
       </div>
       <div class="card-meta">
         ${note.category ? `<span>${escapeHtml(note.category)}</span>` : ''}
@@ -281,7 +281,7 @@ async function renderTrashList() {
   }
 
   list.innerHTML = notes.map(note => `
-    <div class="card" data-id="${note.id}">
+    <div class="card" data-id="${escapeHtml(note.id)}">
       <div class="card-header">
         <div class="card-title">${escapeHtml(note.title || 'Sem titulo')}</div>
         <div class="header-actions">
@@ -357,7 +357,7 @@ async function showTemplateSelector() {
         <div class="template-card" data-template="custom:${tpl.id}">
           <div class="template-icon">${escapeHtml(tpl.icon || '\u{1F4DD}')}</div>
           <div class="template-name">${escapeHtml(tpl.name)}</div>
-          <button class="btn-icon delete-template-btn" data-id="${tpl.id}" title="Excluir template" style="position:absolute;top:4px;right:4px;font-size:12px;">&times;</button>
+          <button class="btn-icon delete-template-btn" data-id="${escapeHtml(tpl.id)}" title="Excluir template" style="position:absolute;top:4px;right:4px;font-size:12px;">&times;</button>
         </div>
       `).join('')}
     </div>
@@ -510,7 +510,7 @@ function openEditor(note) {
     </div>
     <div class="editor-wrapper" id="editor-wrapper">
       <div class="editor-container">
-        <div id="note-content" class="wysiwyg-editor" contenteditable="true">${note ? markdownToHtml(note.content) : ''}</div>
+        <div id="note-content" class="wysiwyg-editor" contenteditable="true" data-placeholder="Comece a escrever...">${note ? markdownToHtml(note.content) : ''}</div>
       </div>
     </div>
     <div class="markdown-preview" id="markdown-preview" style="display:none"></div>
@@ -801,12 +801,12 @@ function openEditor(note) {
             listDiv.innerHTML = '<div class="empty">Nenhuma versao anterior</div>';
           } else {
             listDiv.innerHTML = versions.map(v => `
-              <div class="version-item" data-version-id="${v.id}">
+              <div class="version-item" data-version-id="${escapeHtml(v.id)}">
                 <div class="version-info">
                   <span class="version-date">${formatDateTime(v.created_at)}</span>
                   <span class="version-title">${escapeHtml(v.title || 'Sem titulo')}</span>
                 </div>
-                <button class="btn btn-sm btn-secondary btn-restore-version" data-version-id="${v.id}">Restaurar</button>
+                <button class="btn btn-sm btn-secondary btn-restore-version" data-version-id="${escapeHtml(v.id)}">Restaurar</button>
               </div>
             `).join('');
 
@@ -857,50 +857,7 @@ function openEditor(note) {
 
   setupChipInput('category-chips', 'note-category-input', allCategories, false);
   setupChipInput('tag-chips', 'note-tags-input', allTags, true);
-
-  document.querySelectorAll('#category-chips .remove, #tag-chips .remove').forEach(btn => {
-    btn.addEventListener('click', () => btn.parentElement.remove());
-  });
 }
-
-async function toggleVersions(note) {
-  if (!note?.id) { showToast('Salve a nota primeiro', 'info'); return; }
-  const panel = document.getElementById('versions-panel');
-  const list = document.getElementById('versions-list');
-  if (panel.style.display === 'none') {
-    panel.style.display = 'block';
-    list.innerHTML = '<div class="versions-loading">Carregando...</div>';
-    try {
-      const versions = await api.listNoteVersions(note.id);
-      if (versions.length === 0) {
-        list.innerHTML = '<div class="versions-empty">Nenhuma versao anterior</div>';
-      } else {
-        list.innerHTML = versions.map(v => `
-          <div class="version-item">
-            <div class="version-info">
-              <span class="version-date">${formatDateTime(v.created_at)}</span>
-              <span class="version-title">${escapeHtml(v.title)}</span>
-            </div>
-            <button class="btn btn-sm btn-secondary restore-version" data-version-id="${v.id}">Restaurar</button>
-          </div>
-        `).join('');
-
-        list.querySelectorAll('.restore-version').forEach(btn => {
-          btn.addEventListener('click', async () => {
-            try {
-              const restored = await api.restoreNoteVersion(note.id, btn.dataset.versionId);
-              showToast('Versao restaurada', 'success');
-              openEditor(restored);
-            } catch { showToast('Erro ao restaurar', 'error'); }
-          });
-        });
-      }
-    } catch {
-      list.innerHTML = '<div class="versions-empty">Erro ao carregar</div>';
-    }
-  } else {
-    panel.style.display = 'none';
-  }
 }
 
 function setupChipInput(containerId, inputId, suggestions, allowMultiple) {

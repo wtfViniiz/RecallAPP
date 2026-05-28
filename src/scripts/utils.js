@@ -145,8 +145,9 @@ export function renderMarkdown(text) {
   html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
   // Blockquote
   html = html.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
-  // Unordered list items
+  // List items - wrap consecutive items in <ul>
   html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
+  html = html.replace(/((<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>');
   // Horizontal rule
   html = html.replace(/^---$/gm, '<hr>');
   // Links (with URL sanitization)
@@ -274,6 +275,10 @@ export const DEFAULT_TAGS = [
   'rascunho'
 ];
 
+function getTodayFormatted() {
+  return new Date().toLocaleDateString('pt-BR');
+}
+
 export const NOTE_TEMPLATES = {
   'reuniao': {
     name: 'Reuniao',
@@ -287,7 +292,7 @@ export const NOTE_TEMPLATES = {
   },
   'diario': {
     name: 'Diario',
-    title: 'Diario - ' + new Date().toLocaleDateString('pt-BR'),
+    get title() { return 'Diario - ' + getTodayFormatted(); },
     content: '# Como me sinto\n\n# O que fiz hoje\n\n# Amanha pretendo\n'
   },
   'estudo': {

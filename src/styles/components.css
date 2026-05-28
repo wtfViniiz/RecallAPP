@@ -487,33 +487,6 @@ textarea.form-input {
   position: relative;
 }
 
-.editor-container textarea {
-  flex: 1;
-  border: none;
-  background: transparent;
-  resize: none;
-  padding: 8px;
-  font-size: 14px;
-  line-height: 1.6;
-  font-family: 'Consolas', 'Courier New', monospace;
-  color: var(--text-primary);
-}
-
-.editor-container textarea:focus {
-  outline: none;
-}
-
-/* Notebook stripe for textarea */
-.editor-container textarea {
-  background-image: repeating-linear-gradient(
-    transparent,
-    transparent 22px,
-    var(--line-stripe) 22px,
-    var(--line-stripe) 23px
-  );
-  background-attachment: local;
-}
-
 /* Search highlight */
 mark {
   background: var(--warning);
@@ -845,12 +818,6 @@ mark {
 
 .wysiwyg-editor:focus {
   outline: none;
-}
-
-.wysiwyg-editor:empty::before {
-  content: attr(data-placeholder);
-  color: var(--text-secondary);
-  pointer-events: none;
 }
 
 .wysiwyg-editor:empty::before {

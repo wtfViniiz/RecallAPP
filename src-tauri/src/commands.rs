@@ -57,6 +57,17 @@ pub fn create_note(app: AppHandle, cache: State<'_, NoteCache>, input: CreateNot
     if let Some(ref content) = input.content {
         validate_string(content, 100_000, "Conteudo")?;
     }
+    if let Some(ref category) = input.category {
+        validate_string(category, 100, "Categoria")?;
+    }
+    if let Some(ref tags) = input.tags {
+        if tags.len() > 20 {
+            return Err("Maximo de 20 tags".to_string());
+        }
+        for tag in tags {
+            validate_string(tag, 100, "Tag")?;
+        }
+    }
 
     let now = Utc::now().to_rfc3339();
     let note = Note {
@@ -497,6 +508,7 @@ pub fn get_custom_templates(app: AppHandle) -> Vec<CustomTemplate> {
 #[tauri::command]
 pub fn save_custom_template(app: AppHandle, input: CustomTemplate) -> Result<CustomTemplate, String> {
     validate_string(&input.name, 100, "Nome do template")?;
+    validate_string(&input.id, 100, "ID do template")?;
     let mut templates = storage::load_custom_templates(&app);
     if let Some(existing) = templates.iter_mut().find(|t| t.id == input.id) {
         *existing = input.clone();

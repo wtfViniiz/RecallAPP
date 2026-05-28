@@ -1,6 +1,7 @@
 body.dark {
   --bg-primary: #1a1a2e;
   --bg-secondary: #16213e;
+  --bg-tertiary: #1e2a4a;
   --bg-card: #0f3460;
   --text-primary: #e0e0e0;
   --text-secondary: #a0a0a0;
@@ -16,6 +17,7 @@ body.dark {
 body.light {
   --bg-primary: #f5f5f5;
   --bg-secondary: #ffffff;
+  --bg-tertiary: #f0f0f0;
   --bg-card: #ffffff;
   --text-primary: #1a1a1a;
   --text-secondary: #666666;
