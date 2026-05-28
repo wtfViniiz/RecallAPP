@@ -995,3 +995,26 @@ mark {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* Inline URL input (for link insertion) */
+.inline-url-input {
+  display: inline-block;
+  position: relative;
+}
+
+.inline-input {
+  padding: 4px 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  min-width: 200px;
+}
+
+.inline-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}

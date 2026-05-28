@@ -565,19 +565,31 @@ function openEditor(note) {
       if (sel.rangeCount > 0) {
         const range = sel.getRangeAt(0);
         const selected = range.toString();
-        const url = prompt('URL:', 'https://');
-        if (url) {
-          const a = document.createElement('a');
-          a.href = url;
-          a.textContent = selected || 'link';
-          a.target = '_blank';
-          range.deleteContents();
-          range.insertNode(a);
-          range.setStartAfter(a);
-          range.collapse(true);
-          sel.removeAllRanges();
-          sel.addRange(range);
-        }
+        const urlContainer = document.createElement('span');
+        urlContainer.className = 'inline-url-input';
+        urlContainer.innerHTML = `<input type="text" class="inline-input" placeholder="https://..." value="https://">`;
+        range.deleteContents();
+        range.insertNode(urlContainer);
+        const urlInput = urlContainer.querySelector('input');
+        urlInput.focus();
+        urlInput.select();
+        const finishLink = () => {
+          const url = urlInput.value.trim();
+          if (url && url !== 'https://') {
+            const a = document.createElement('a');
+            a.href = url;
+            a.textContent = selected || 'link';
+            a.target = '_blank';
+            urlContainer.replaceWith(a);
+          } else {
+            urlContainer.replaceWith(selected || 'link');
+          }
+        };
+        urlInput.addEventListener('blur', finishLink);
+        urlInput.addEventListener('keydown', (evt) => {
+          if (evt.key === 'Enter') { evt.preventDefault(); finishLink(); }
+          if (evt.key === 'Escape') { urlContainer.replaceWith(selected || 'link'); }
+        });
       }
     }
   });
@@ -587,7 +599,6 @@ function openEditor(note) {
     if (e.ctrlKey || e.metaKey) {
       if (e.key === 'b') { e.preventDefault(); document.execCommand('bold', false, null); }
       if (e.key === 'i') { e.preventDefault(); document.execCommand('italic', false, null); }
-      if (e.key === 's') { e.preventDefault(); document.execCommand('strikeThrough', false, null); }
     }
   });
 
@@ -702,20 +713,44 @@ function openEditor(note) {
       showToast('Nota vazia, nada para salvar como template', 'warning');
       return;
     }
-    const name = prompt('Nome do template:', title || 'Meu template');
-    if (!name) return;
-    try {
-      await api.saveCustomTemplate({
-        id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36),
-        name,
-        title: title || '',
-        content: content || '',
-        icon: null,
+    const defaultName = title || 'Meu template';
+    const toastEl = showToast(`<div class="confirm-toast">
+      <div style="font-size:13px;margin-bottom:6px">Nome do template:</div>
+      <div style="display:flex;gap:8px">
+        <input type="text" id="tpl-name-input" class="inline-input" value="${escapeHtml(defaultName)}" style="flex:1">
+        <button class="btn btn-primary btn-sm" id="tpl-save-btn">Salvar</button>
+        <button class="btn btn-secondary btn-sm" id="tpl-cancel-btn">&times;</button>
+      </div>
+    </div>`, 'info', 30000, true);
+    setTimeout(() => {
+      const nameInput = document.getElementById('tpl-name-input');
+      const saveBtn = document.getElementById('tpl-save-btn');
+      const cancelBtn = document.getElementById('tpl-cancel-btn');
+      if (!nameInput) return;
+      nameInput.focus();
+      nameInput.select();
+      const doSave = async () => {
+        const name = nameInput.value.trim();
+        if (!name) return;
+        if (toastEl?.parentElement) toastEl.remove();
+        try {
+          await api.saveCustomTemplate({
+            id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36),
+            name,
+            title: title || '',
+            content: content || '',
+            icon: null,
+          });
+          showToast('Template salvo', 'success');
+        } catch { showToast('Erro ao salvar', 'error'); }
+      };
+      saveBtn?.addEventListener('click', doSave);
+      cancelBtn?.addEventListener('click', () => { if (toastEl?.parentElement) toastEl.remove(); });
+      nameInput.addEventListener('keydown', (evt) => {
+        if (evt.key === 'Enter') doSave();
+        if (evt.key === 'Escape') { if (toastEl?.parentElement) toastEl.remove(); }
       });
-      showToast('Template salvo', 'success');
-    } catch (err) {
-      showToast('Erro ao salvar template', 'error');
-    }
+    }, 50);
   });
 
   // Preview toggle

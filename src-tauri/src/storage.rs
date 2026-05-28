@@ -6,6 +6,7 @@ use tauri::Manager;
 use uuid::Uuid;
 
 static DIR_INIT: Once = Once::new();
+static DIR_INIT_OK: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
 
 fn data_dir(app_handle: &tauri::AppHandle) -> PathBuf {
     let dir = match app_handle.path().app_data_dir() {
@@ -16,16 +17,24 @@ fn data_dir(app_handle: &tauri::AppHandle) -> PathBuf {
         }
     };
     DIR_INIT.call_once(|| {
+        let mut ok = true;
         if let Err(e) = fs::create_dir_all(dir.join("notes")) {
             eprintln!("[Recall] Erro ao criar diretorio notes: {}", e);
+            ok = false;
         }
         if let Err(e) = fs::create_dir_all(dir.join("reminders")) {
             eprintln!("[Recall] Erro ao criar diretorio reminders: {}", e);
+            ok = false;
         }
         if let Err(e) = fs::create_dir_all(dir.join("versions")) {
             eprintln!("[Recall] Erro ao criar diretorio versions: {}", e);
+            ok = false;
         }
+        DIR_INIT_OK.store(ok, std::sync::atomic::Ordering::Relaxed);
     });
+    if !DIR_INIT_OK.load(std::sync::atomic::Ordering::Relaxed) {
+        eprintln!("[Recall] Aviso: diretorios de dados nao foram criados corretamente");
+    }
     dir
 }
 

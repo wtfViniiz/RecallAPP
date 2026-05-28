@@ -48,17 +48,23 @@ export function escapeHtml(str) {
 }
 
 // Toast notification system
-export function showToast(message, type = 'info', duration = 3000) {
+export function showToast(message, type = 'info', duration = 3000, isHtml = false) {
   const container = document.getElementById('toast-container');
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
-  toast.textContent = message;
+  if (isHtml) {
+    toast.innerHTML = message;
+  } else {
+    toast.textContent = message;
+  }
   container.appendChild(toast);
 
   setTimeout(() => {
     toast.style.animation = 'slideIn 0.2s ease-out reverse';
     setTimeout(() => toast.remove(), 200);
   }, duration);
+
+  return toast;
 }
 
 export function showConfirm(message, onConfirm) {
@@ -216,11 +222,13 @@ export function htmlToMarkdown(html) {
   md = md.replace(/<hr\s*\/?>/gi, '\n---\n');
   // Line breaks and paragraphs
   md = md.replace(/<br\s*\/?>/gi, '\n');
+  md = md.replace(/<\/div>\s*<div[^>]*>/gi, '\n');
+  md = md.replace(/<\/?div[^>]*>/gi, '\n');
   md = md.replace(/<p>([\s\S]*?)<\/p>/gi, '$1\n');
   // Remove remaining HTML tags
   md = md.replace(/<[^>]+>/g, '');
   // Decode HTML entities
-  md = md.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+  md = md.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ');
   // Clean up extra newlines
   md = md.replace(/\n{3,}/g, '\n\n').trim();
 

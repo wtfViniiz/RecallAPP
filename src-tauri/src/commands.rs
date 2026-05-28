@@ -187,10 +187,19 @@ pub fn create_reminder(app: AppHandle, cache: State<'_, NoteCache>, input: Creat
     let trigger_at = if let Some(minutes) = input.relative_minutes {
         (now + chrono::Duration::minutes(minutes)).to_rfc3339()
     } else if let Some(trigger) = input.trigger_at {
+        chrono::DateTime::parse_from_rfc3339(&trigger)
+            .map_err(|_| format!("trigger_at invalido: '{}'. Use formato ISO 8601", trigger))?;
         trigger
     } else {
         return Err("Either trigger_at or relative_minutes is required".to_string());
     };
+
+    if let Some(ref repeat) = input.repeat {
+        let valid_repeats = ["daily", "weekly", "monthly"];
+        if !valid_repeats.contains(&repeat.as_str()) {
+            return Err(format!("Repeat invalido: '{}'. Use: {:?}", repeat, valid_repeats));
+        }
+    }
 
     let reminder = Reminder {
         id: Uuid::new_v4().to_string(),
@@ -237,10 +246,19 @@ pub fn update_reminder(app: AppHandle, cache: State<'_, NoteCache>, input: Updat
         }
         reminder.status = status;
     }
-    if let Some(trigger_at) = input.trigger_at {
-        reminder.trigger_at = trigger_at;
+    if let Some(ref trigger_at) = input.trigger_at {
+        chrono::DateTime::parse_from_rfc3339(trigger_at)
+            .map_err(|_| format!("trigger_at invalido: '{}'. Use formato ISO 8601 (ex: 2026-01-01T12:00:00Z)", trigger_at))?;
+        reminder.trigger_at = trigger_at.clone();
     }
     if let Some(repeat) = input.repeat {
+        let valid_repeats = ["daily", "weekly", "monthly"];
+        if !repeat.is_empty() && !valid_repeats.contains(&repeat.as_str()) {
+            return Err(format!(
+                "Repeat invalido: '{}'. Use: {:?}",
+                repeat, valid_repeats
+            ));
+        }
         reminder.repeat = if repeat.is_empty() {
             None
         } else {
@@ -535,7 +553,7 @@ pub fn import_data(app: AppHandle, cache: State<'_, NoteCache>, json_data: Strin
                     }
                     validate_string(&note.title, 500, "Titulo (import)")
                         .map_err(|e| format!("Nota '{}': {}", note.id, e))?;
-                    if note.content.len() > 100_000 {
+                    if note.content.chars().count() > 100_000 {
                         return Err(format!(
                             "Nota '{}' conteudo excede 100k caracteres",
                             note.id
