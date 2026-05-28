@@ -94,7 +94,7 @@ async function loadReminders() {
   });
 }
 
-function openReminderForm(reminder) {
+async function openReminderForm(reminder) {
   currentReminder = reminder;
   const container = document.getElementById('view-reminders');
 

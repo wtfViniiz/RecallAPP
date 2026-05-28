@@ -54,6 +54,9 @@ pub fn list_notes(app_handle: &tauri::AppHandle, filter: Option<NoteFilter>) -> 
         })
         .collect();
 
+    // Filter out trashed notes
+    notes.retain(|n| !n.trashed);
+
     if let Some(filter) = filter {
         if let Some(search) = &filter.search {
             let search_lower = search.to_lowercase();
