@@ -1,19 +1,21 @@
-use crate::storage;
+use crate::cache::NoteCache;
 use chrono::{DateTime, Utc};
 use std::panic::catch_unwind;
 use std::sync::Arc;
 use tauri::{AppHandle, Manager};
 
-pub fn start_scheduler(app: AppHandle) {
+pub fn start_scheduler(app: AppHandle, cache: NoteCache) {
     let app = Arc::new(app);
+    let cache = Arc::new(cache);
 
     // Check on startup for missed reminders
     {
         let app_clone = app.clone();
+        let cache_clone = cache.clone();
         std::thread::spawn(move || {
             std::thread::sleep(std::time::Duration::from_secs(2));
             let _ = catch_unwind(std::panic::AssertUnwindSafe(|| {
-                check_and_fire(&app_clone);
+                check_and_fire(&app_clone, &cache_clone);
             }));
         });
     }
@@ -22,13 +24,13 @@ pub fn start_scheduler(app: AppHandle) {
     std::thread::spawn(move || loop {
         std::thread::sleep(std::time::Duration::from_secs(30));
         let _ = catch_unwind(std::panic::AssertUnwindSafe(|| {
-            check_and_fire(&app);
+            check_and_fire(&app, &cache);
         }));
     });
 }
 
-fn check_and_fire(app: &AppHandle) {
-    let reminders = storage::list_reminders(app, Some("pending".to_string()));
+fn check_and_fire(app: &AppHandle, cache: &NoteCache) {
+    let reminders = cache.list_reminders(app, Some("pending".to_string()));
     let now = Utc::now();
 
     for mut reminder in reminders {
@@ -60,15 +62,15 @@ fn check_and_fire(app: &AppHandle) {
                     "monthly" => trigger + chrono::Duration::days(30),
                     _ => {
                         reminder.status = "fired".to_string();
-                        let _ = storage::save_reminder(app, &reminder);
+                        let _ = cache.save_reminder(app, &reminder);
                         continue;
                     }
                 };
                 reminder.trigger_at = next.to_rfc3339();
-                let _ = storage::save_reminder(app, &reminder);
+                let _ = cache.save_reminder(app, &reminder);
             } else {
                 reminder.status = "fired".to_string();
-                let _ = storage::save_reminder(app, &reminder);
+                let _ = cache.save_reminder(app, &reminder);
             }
         }
     }

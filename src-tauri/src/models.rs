@@ -65,6 +65,21 @@ pub struct NoteFilter {
     pub search: Option<String>,
     pub category: Option<String>,
     pub tag: Option<String>,
+    pub offset: Option<usize>,
+    pub limit: Option<usize>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReminderFilter {
+    pub status: Option<String>,
+    pub offset: Option<usize>,
+    pub limit: Option<usize>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct PaginatedResult<T: Serialize> {
+    pub items: Vec<T>,
+    pub total: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -257,11 +272,15 @@ mod tests {
             search: Some("test".to_string()),
             category: Some("Work".to_string()),
             tag: Some("urgent".to_string()),
+            offset: Some(0),
+            limit: Some(30),
         };
 
         assert_eq!(filter.search, Some("test".to_string()));
         assert_eq!(filter.category, Some("Work".to_string()));
         assert_eq!(filter.tag, Some("urgent".to_string()));
+        assert_eq!(filter.offset, Some(0));
+        assert_eq!(filter.limit, Some(30));
     }
 
     #[test]
@@ -270,11 +289,15 @@ mod tests {
             search: None,
             category: None,
             tag: None,
+            offset: None,
+            limit: None,
         };
 
         assert!(filter.search.is_none());
         assert!(filter.category.is_none());
         assert!(filter.tag.is_none());
+        assert!(filter.offset.is_none());
+        assert!(filter.limit.is_none());
     }
 
     #[test]

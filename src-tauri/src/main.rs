@@ -1,14 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use recall::{cache, commands, scheduler, shortcuts, tray};
 use tauri::Manager;
-
-mod commands;
-mod models;
-mod scheduler;
-mod shortcuts;
-mod storage;
-mod tray;
-mod window;
 
 fn main() {
     tauri::Builder::default()
@@ -20,8 +13,11 @@ fn main() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .setup(|app| {
+            let note_cache = cache::NoteCache::new();
+            app.manage(note_cache.clone());
+
             tray::setup_tray(app)?;
-            scheduler::start_scheduler(app.handle().clone());
+            scheduler::start_scheduler(app.handle().clone(), note_cache);
             shortcuts::register_shortcut(app)?;
 
             if let Some(window) = app.get_webview_window("main") {

@@ -1,6 +1,6 @@
 use crate::models::{Config, Note, NoteFilter, Reminder};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Once;
 use tauri::Manager;
 
@@ -19,16 +19,11 @@ fn data_dir(app_handle: &tauri::AppHandle) -> PathBuf {
     dir
 }
 
-fn notes_dir(app_handle: &tauri::AppHandle) -> PathBuf {
-    data_dir(app_handle).join("notes")
-}
 
-fn reminders_dir(app_handle: &tauri::AppHandle) -> PathBuf {
-    data_dir(app_handle).join("reminders")
-}
-
-fn config_path(app_handle: &tauri::AppHandle) -> PathBuf {
-    data_dir(app_handle).join("config.json")
+/// Ensure data directories exist (for test and non-AppHandle usage)
+pub fn ensure_dirs(data_dir: &Path) {
+    let _ = fs::create_dir_all(data_dir.join("notes"));
+    let _ = fs::create_dir_all(data_dir.join("reminders"));
 }
 
 /// Atomic write: writes to .tmp then renames to prevent corruption
@@ -39,10 +34,54 @@ fn atomic_write(path: &std::path::Path, content: &str) -> Result<(), String> {
     Ok(())
 }
 
-// --- Notes ---
+// --- Notes (AppHandle variants - delegate to _at) ---
 
 pub fn list_notes(app_handle: &tauri::AppHandle, filter: Option<NoteFilter>) -> Vec<Note> {
-    let dir = notes_dir(app_handle);
+    list_notes_at(&data_dir(app_handle), filter)
+}
+
+pub fn list_all_notes(app_handle: &tauri::AppHandle) -> Vec<Note> {
+    list_all_notes_at(&data_dir(app_handle))
+}
+
+pub fn list_trashed_notes(app_handle: &tauri::AppHandle) -> Vec<Note> {
+    list_trashed_notes_at(&data_dir(app_handle))
+}
+
+pub fn get_note(app_handle: &tauri::AppHandle, id: &str) -> Option<Note> {
+    get_note_at(&data_dir(app_handle), id)
+}
+
+pub fn save_note(app_handle: &tauri::AppHandle, note: &Note) -> Result<(), String> {
+    save_note_at(&data_dir(app_handle), note)
+}
+
+pub fn delete_note(app_handle: &tauri::AppHandle, id: &str) -> Result<(), String> {
+    delete_note_at(&data_dir(app_handle), id)
+}
+
+// --- Reminders (AppHandle variants - delegate to _at) ---
+
+pub fn list_reminders(app_handle: &tauri::AppHandle, status: Option<String>) -> Vec<Reminder> {
+    list_reminders_at(&data_dir(app_handle), status)
+}
+
+pub fn get_reminder(app_handle: &tauri::AppHandle, id: &str) -> Option<Reminder> {
+    get_reminder_at(&data_dir(app_handle), id)
+}
+
+pub fn save_reminder(app_handle: &tauri::AppHandle, reminder: &Reminder) -> Result<(), String> {
+    save_reminder_at(&data_dir(app_handle), reminder)
+}
+
+pub fn delete_reminder(app_handle: &tauri::AppHandle, id: &str) -> Result<(), String> {
+    delete_reminder_at(&data_dir(app_handle), id)
+}
+
+// --- Notes (_at variants - take Path directly, testable without AppHandle) ---
+
+pub fn list_notes_at(data_dir: &Path, filter: Option<NoteFilter>) -> Vec<Note> {
+    let dir = data_dir.join("notes");
     let mut notes: Vec<Note> = fs::read_dir(&dir)
         .ok()
         .into_iter()
@@ -59,7 +98,6 @@ pub fn list_notes(app_handle: &tauri::AppHandle, filter: Option<NoteFilter>) -> 
         })
         .collect();
 
-    // Filter out trashed notes
     notes.retain(|n| !n.trashed);
 
     if let Some(filter) = filter {
@@ -88,8 +126,8 @@ pub fn list_notes(app_handle: &tauri::AppHandle, filter: Option<NoteFilter>) -> 
     notes
 }
 
-pub fn list_all_notes(app_handle: &tauri::AppHandle) -> Vec<Note> {
-    let dir = notes_dir(app_handle);
+pub fn list_all_notes_at(data_dir: &Path) -> Vec<Note> {
+    let dir = data_dir.join("notes");
     fs::read_dir(&dir)
         .ok()
         .into_iter()
@@ -107,8 +145,8 @@ pub fn list_all_notes(app_handle: &tauri::AppHandle) -> Vec<Note> {
         .collect()
 }
 
-pub fn list_trashed_notes(app_handle: &tauri::AppHandle) -> Vec<Note> {
-    let dir = notes_dir(app_handle);
+pub fn list_trashed_notes_at(data_dir: &Path) -> Vec<Note> {
+    let dir = data_dir.join("notes");
     let mut notes: Vec<Note> = fs::read_dir(&dir)
         .ok()
         .into_iter()
@@ -136,29 +174,29 @@ pub fn list_trashed_notes(app_handle: &tauri::AppHandle) -> Vec<Note> {
     notes
 }
 
-pub fn get_note(app_handle: &tauri::AppHandle, id: &str) -> Option<Note> {
-    let path = notes_dir(app_handle).join(format!("{}.json", id));
+pub fn get_note_at(data_dir: &Path, id: &str) -> Option<Note> {
+    let path = data_dir.join("notes").join(format!("{}.json", id));
     let content = fs::read_to_string(path).ok()?;
     let mut note: Note = serde_json::from_str(&content).ok()?;
     migrate_note(&mut note);
     Some(note)
 }
 
-pub fn save_note(app_handle: &tauri::AppHandle, note: &Note) -> Result<(), String> {
-    let path = notes_dir(app_handle).join(format!("{}.json", note.id));
+pub fn save_note_at(data_dir: &Path, note: &Note) -> Result<(), String> {
+    let path = data_dir.join("notes").join(format!("{}.json", note.id));
     let json = serde_json::to_string_pretty(note).map_err(|e| e.to_string())?;
     atomic_write(&path, &json)
 }
 
-pub fn delete_note(app_handle: &tauri::AppHandle, id: &str) -> Result<(), String> {
-    let path = notes_dir(app_handle).join(format!("{}.json", id));
+pub fn delete_note_at(data_dir: &Path, id: &str) -> Result<(), String> {
+    let path = data_dir.join("notes").join(format!("{}.json", id));
     fs::remove_file(path).map_err(|e| e.to_string())
 }
 
-// --- Reminders ---
+// --- Reminders (_at variants) ---
 
-pub fn list_reminders(app_handle: &tauri::AppHandle, status: Option<String>) -> Vec<Reminder> {
-    let dir = reminders_dir(app_handle);
+pub fn list_reminders_at(data_dir: &Path, status: Option<String>) -> Vec<Reminder> {
+    let dir = data_dir.join("reminders");
     let mut reminders: Vec<Reminder> = fs::read_dir(&dir)
         .ok()
         .into_iter()
@@ -183,37 +221,47 @@ pub fn list_reminders(app_handle: &tauri::AppHandle, status: Option<String>) -> 
     reminders
 }
 
-pub fn get_reminder(app_handle: &tauri::AppHandle, id: &str) -> Option<Reminder> {
-    let path = reminders_dir(app_handle).join(format!("{}.json", id));
+pub fn get_reminder_at(data_dir: &Path, id: &str) -> Option<Reminder> {
+    let path = data_dir.join("reminders").join(format!("{}.json", id));
     let content = fs::read_to_string(path).ok()?;
     let mut reminder: Reminder = serde_json::from_str(&content).ok()?;
     migrate_reminder(&mut reminder);
     Some(reminder)
 }
 
-pub fn save_reminder(app_handle: &tauri::AppHandle, reminder: &Reminder) -> Result<(), String> {
-    let path = reminders_dir(app_handle).join(format!("{}.json", reminder.id));
+pub fn save_reminder_at(data_dir: &Path, reminder: &Reminder) -> Result<(), String> {
+    let path = data_dir.join("reminders").join(format!("{}.json", reminder.id));
     let json = serde_json::to_string_pretty(reminder).map_err(|e| e.to_string())?;
     atomic_write(&path, &json)
 }
 
-pub fn delete_reminder(app_handle: &tauri::AppHandle, id: &str) -> Result<(), String> {
-    let path = reminders_dir(app_handle).join(format!("{}.json", id));
+pub fn delete_reminder_at(data_dir: &Path, id: &str) -> Result<(), String> {
+    let path = data_dir.join("reminders").join(format!("{}.json", id));
     fs::remove_file(path).map_err(|e| e.to_string())
 }
 
-// --- Config ---
+// --- Config (AppHandle variants) ---
 
 pub fn load_config(app_handle: &tauri::AppHandle) -> Config {
-    let path = config_path(app_handle);
+    load_config_at(&data_dir(app_handle))
+}
+
+pub fn save_config(app_handle: &tauri::AppHandle, config: &Config) -> Result<(), String> {
+    save_config_at(&data_dir(app_handle), config)
+}
+
+// --- Config (_at variants) ---
+
+pub fn load_config_at(data_dir: &Path) -> Config {
+    let path = data_dir.join("config.json");
     match fs::read_to_string(&path) {
         Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
         Err(_) => Config::default(),
     }
 }
 
-pub fn save_config(app_handle: &tauri::AppHandle, config: &Config) -> Result<(), String> {
-    let path = config_path(app_handle);
+pub fn save_config_at(data_dir: &Path, config: &Config) -> Result<(), String> {
+    let path = data_dir.join("config.json");
     let json = serde_json::to_string_pretty(config).map_err(|e| e.to_string())?;
     atomic_write(&path, &json)
 }

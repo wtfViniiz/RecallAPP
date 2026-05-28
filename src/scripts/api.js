@@ -15,7 +15,7 @@ export const api = {
   getTrashedNotes: () => invoke('get_trashed_notes'),
 
   // Reminders
-  getReminders: (status) => invoke('get_reminders', { status }),
+  getReminders: (filter) => invoke('get_reminders', { filter }),
   createReminder: (input) => invoke('create_reminder', { input }),
   updateReminder: (input) => invoke('update_reminder', { input }),
   deleteReminder: (id) => invoke('delete_reminder', { id }),

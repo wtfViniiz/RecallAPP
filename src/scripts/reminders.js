@@ -2,6 +2,8 @@ import { api } from './api.js';
 import { formatDateTime, formatRelativeDate, escapeHtml, showToast, showConfirm } from './utils.js';
 
 let currentReminder = null;
+let remindersOffset = 0;
+const REMINDERS_PAGE_SIZE = 30;
 
 export async function initReminders() {
   await renderRemindersList();
@@ -28,16 +30,8 @@ async function renderRemindersList() {
   await loadReminders();
 }
 
-async function loadReminders() {
-  const reminders = await api.getReminders();
-  const list = document.getElementById('reminders-list');
-
-  if (reminders.length === 0) {
-    list.innerHTML = '<div class="empty">Nenhum lembrete</div>';
-    return;
-  }
-
-  list.innerHTML = reminders.map(r => {
+function renderReminderCards(reminders) {
+  return reminders.map(r => {
     const statusClass = r.status === 'pending' ? 'badge-pending' :
                         r.status === 'fired' ? 'badge-fired' : 'badge-dismissed';
     const statusLabel = r.status === 'pending' ? 'Pendente' :
@@ -64,7 +58,9 @@ async function loadReminders() {
       </div>
     `;
   }).join('');
+}
 
+function attachReminderHandlers(list, reminders) {
   list.querySelectorAll('.card').forEach(card => {
     card.addEventListener('click', (e) => {
       if (e.target.dataset.dismiss || e.target.dataset.snooze) return;
@@ -92,6 +88,44 @@ async function loadReminders() {
       await loadReminders();
     });
   });
+}
+
+async function loadReminders(append = false) {
+  const filter = { limit: REMINDERS_PAGE_SIZE };
+  if (!append) {
+    remindersOffset = 0;
+  }
+  filter.offset = remindersOffset;
+
+  const result = await api.getReminders(filter);
+  const reminders = result.items;
+  const total = result.total;
+  const list = document.getElementById('reminders-list');
+
+  if (!append && reminders.length === 0) {
+    list.innerHTML = '<div class="empty">Nenhum lembrete</div>';
+    return;
+  }
+
+  const cardsHtml = renderReminderCards(reminders);
+
+  if (append) {
+    const existingBtn = list.querySelector('.load-more-container');
+    if (existingBtn) existingBtn.remove();
+    list.insertAdjacentHTML('beforeend', cardsHtml);
+  } else {
+    list.innerHTML = cardsHtml;
+  }
+
+  remindersOffset += reminders.length;
+  attachReminderHandlers(list, reminders);
+
+  // "Load More" button
+  if (remindersOffset < total) {
+    const loadMoreHtml = '<div class="load-more-container"><button class="btn btn-secondary" id="btn-load-more-reminders">Carregar mais</button></div>';
+    list.insertAdjacentHTML('beforeend', loadMoreHtml);
+    document.getElementById('btn-load-more-reminders').addEventListener('click', () => loadReminders(true));
+  }
 }
 
 async function openReminderForm(reminder) {
@@ -148,7 +182,8 @@ async function openReminderForm(reminder) {
 
   // Populate note selector
   try {
-    const notes = await api.getNotes(null);
+    const result = await api.getNotes({ limit: 500 });
+    const notes = result.items;
     const noteSelect = document.getElementById('reminder-note');
     notes.forEach(note => {
       const option = document.createElement('option');
@@ -272,8 +307,8 @@ async function saveReminder() {
 
 async function renderCalendarView() {
   const container = document.getElementById('view-reminders');
-  const allReminders = await api.getReminders();
-  const reminders = allReminders.filter(r => r.status === 'pending');
+  const result = await api.getReminders({ status: 'pending' });
+  const reminders = result.items;
 
   const now = new Date();
   const year = now.getFullYear();

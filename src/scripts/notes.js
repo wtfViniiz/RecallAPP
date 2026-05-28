@@ -7,6 +7,8 @@ let allCategories = [...DEFAULT_CATEGORIES];
 let allTags = [...DEFAULT_TAGS];
 let saveTimeout = null;
 let keyListenersAttached = false;
+let notesOffset = 0;
+const NOTES_PAGE_SIZE = 30;
 
 export async function initNotes() {
   setupGlobalKeyListeners();
@@ -84,27 +86,8 @@ async function renderNotesList() {
   await loadNotes();
 }
 
-async function loadNotes() {
-  const search = document.getElementById('note-search')?.value || '';
-  const category = document.getElementById('filter-category')?.value || '';
-  const tag = document.getElementById('filter-tag')?.value || '';
-
-  const filter = {};
-  if (search) filter.search = search;
-  if (category) filter.category = category;
-  if (tag) filter.tag = tag;
-
-  const notes = await api.getNotes(Object.keys(filter).length ? filter : null);
-  const list = document.getElementById('notes-list');
-
-  if (notes.length === 0) {
-    list.innerHTML = '<div class="empty">Nenhuma nota encontrada</div>';
-    return;
-  }
-
-  const searchQuery = search;
-
-  list.innerHTML = notes.map(note => `
+function renderNoteCards(notes, searchQuery) {
+  return notes.map(note => `
     <div class="card ${note.pinned ? 'pinned' : ''}" data-id="${note.id}">
       <div class="card-header">
         <div class="card-title">${highlightMatch(note.title || 'Sem titulo', searchQuery)}</div>
@@ -117,7 +100,9 @@ async function loadNotes() {
       </div>
     </div>
   `).join('');
+}
 
+function attachNoteCardHandlers(list, notes) {
   list.querySelectorAll('.card').forEach(card => {
     card.addEventListener('click', (e) => {
       if (e.target.closest('.delete-note-btn')) return;
@@ -129,17 +114,62 @@ async function loadNotes() {
   list.querySelectorAll('.delete-note-btn').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
-      const id = btn.dataset.id;
-      await api.trashNote(id);
+      await api.trashNote(btn.dataset.id);
       showToast('Nota movida para lixeira', 'success');
       await loadNotes();
     });
   });
 }
 
+async function loadNotes(append = false) {
+  const search = document.getElementById('note-search')?.value || '';
+  const category = document.getElementById('filter-category')?.value || '';
+  const tag = document.getElementById('filter-tag')?.value || '';
+
+  const filter = { limit: NOTES_PAGE_SIZE };
+  if (search) filter.search = search;
+  if (category) filter.category = category;
+  if (tag) filter.tag = tag;
+
+  if (!append) {
+    notesOffset = 0;
+  }
+  filter.offset = notesOffset;
+
+  const result = await api.getNotes(filter);
+  const notes = result.items;
+  const total = result.total;
+  const list = document.getElementById('notes-list');
+
+  if (!append && notes.length === 0) {
+    list.innerHTML = '<div class="empty">Nenhuma nota encontrada</div>';
+    return;
+  }
+
+  const cardsHtml = renderNoteCards(notes, search);
+
+  if (append) {
+    const existingBtn = list.querySelector('.load-more-container');
+    if (existingBtn) existingBtn.remove();
+    list.insertAdjacentHTML('beforeend', cardsHtml);
+  } else {
+    list.innerHTML = cardsHtml;
+  }
+
+  notesOffset += notes.length;
+  attachNoteCardHandlers(list, notes);
+
+  // "Load More" button
+  if (notesOffset < total) {
+    const loadMoreHtml = '<div class="load-more-container"><button class="btn btn-secondary" id="btn-load-more">Carregar mais</button></div>';
+    list.insertAdjacentHTML('beforeend', loadMoreHtml);
+    document.getElementById('btn-load-more').addEventListener('click', () => loadNotes(true));
+  }
+}
+
 async function loadRecentNotes() {
-  const notes = await api.getNotes(null);
-  const recent = notes.slice(0, 10); // Already sorted by updated_at desc
+  const result = await api.getNotes({ limit: 10 });
+  const recent = result.items;
   const list = document.getElementById('notes-list');
 
   if (recent.length === 0) {
@@ -147,36 +177,8 @@ async function loadRecentNotes() {
     return;
   }
 
-  list.innerHTML = recent.map(note => `
-    <div class="card ${note.pinned ? 'pinned' : ''}" data-id="${note.id}">
-      <div class="card-header">
-        <div class="card-title">${escapeHtml(note.title || 'Sem titulo')}</div>
-        <button class="btn-icon delete-note-btn" data-id="${note.id}" title="Excluir">&#128465;</button>
-      </div>
-      <div class="card-meta">
-        ${note.category ? `<span>${escapeHtml(note.category)}</span>` : ''}
-        ${note.tags.map(t => `<span class="tag">#${escapeHtml(t)}</span>`).join('')}
-        <span>${formatDate(note.updated_at)}</span>
-      </div>
-    </div>
-  `).join('');
-
-  list.querySelectorAll('.card').forEach(card => {
-    card.addEventListener('click', (e) => {
-      if (e.target.closest('.delete-note-btn')) return;
-      const note = recent.find(n => n.id === card.dataset.id);
-      openEditor(note);
-    });
-  });
-
-  list.querySelectorAll('.delete-note-btn').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      await api.trashNote(btn.dataset.id);
-      showToast('Nota movida para lixeira', 'success');
-      loadRecentNotes();
-    });
-  });
+  list.innerHTML = renderNoteCards(recent, '');
+  attachNoteCardHandlers(list, recent);
 }
 
 async function renderTrashList() {

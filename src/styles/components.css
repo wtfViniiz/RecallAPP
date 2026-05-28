@@ -721,6 +721,13 @@ mark {
   background: var(--accent);
 }
 
+/* Load More */
+.load-more-container {
+  text-align: center;
+  padding: 12px;
+  margin-top: 4px;
+}
+
 /* Confirm toast */
 .confirm-toast {
   display: flex;
