@@ -41,6 +41,14 @@ export async function initSettings() {
     <div class="form-group">
       <button class="btn btn-secondary" id="btn-check-updates">Verificar atualizacoes agora</button>
     </div>
+    <div class="form-group">
+      <label>Backup</label>
+      <div style="display: flex; gap: 8px;">
+        <button class="btn btn-secondary" id="btn-export">Exportar dados</button>
+        <button class="btn btn-secondary" id="btn-import">Importar dados</button>
+      </div>
+      <input type="file" id="import-file" accept=".json" style="display:none">
+    </div>
     <div style="margin-top: 24px;">
       <button class="btn btn-primary" id="btn-save-settings">Salvar</button>
     </div>
@@ -103,6 +111,42 @@ export async function initSettings() {
     } catch (e) {
       showToast('Erro ao verificar atualizacoes', 'error');
     }
+  });
+
+  // Export button
+  document.getElementById('btn-export').addEventListener('click', async () => {
+    try {
+      const data = await api.exportData();
+      const blob = new Blob([data], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `recall-backup-${new Date().toISOString().slice(0,10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('Dados exportados', 'success');
+    } catch (e) {
+      showToast('Erro ao exportar', 'error');
+    }
+  });
+
+  // Import button
+  document.getElementById('btn-import').addEventListener('click', () => {
+    document.getElementById('import-file').click();
+  });
+
+  document.getElementById('import-file').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const result = await api.importData(text);
+      showToast(result, 'success');
+    } catch (err) {
+      showToast('Erro ao importar: ' + err, 'error');
+    }
+    e.target.value = '';
   });
 }
 

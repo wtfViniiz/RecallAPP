@@ -1,5 +1,9 @@
 use serde::{Deserialize, Serialize};
 
+fn default_schema_version() -> u32 {
+    1
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Note {
     pub id: String,
@@ -8,6 +12,12 @@ pub struct Note {
     pub category: Option<String>,
     pub tags: Vec<String>,
     pub pinned: bool,
+    #[serde(default)]
+    pub trashed: bool,
+    #[serde(default)]
+    pub trashed_at: Option<String>,
+    #[serde(default = "default_schema_version")]
+    pub schema_version: u32,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -22,6 +32,8 @@ pub struct Reminder {
     pub repeat: Option<String>,
     pub relative_minutes: Option<i64>,
     pub status: String,
+    #[serde(default = "default_schema_version")]
+    pub schema_version: u32,
     pub created_at: String,
 }
 
@@ -42,8 +54,8 @@ impl Default for Config {
             shortcut: "Ctrl+Alt+x".to_string(),
             autostart: true,
             check_updates: true,
-            window_width: 400,
-            window_height: 600,
+            window_width: 500,
+            window_height: 650,
         }
     }
 }
@@ -111,8 +123,8 @@ mod tests {
     #[test]
     fn test_config_default_values() {
         let config = Config::default();
-        assert_eq!(config.window_width, 400);
-        assert_eq!(config.window_height, 600);
+        assert_eq!(config.window_width, 500);
+        assert_eq!(config.window_height, 650);
         assert_eq!(config.shortcut, "Ctrl+Alt+x");
     }
 }

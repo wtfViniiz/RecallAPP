@@ -41,9 +41,12 @@ async function renderNotesList() {
     <div class="filter-row">
       <select id="filter-category"><option value="">Todas categorias</option></select>
       <select id="filter-tag"><option value="">Todas tags</option></select>
+      <button class="btn btn-secondary btn-sm" id="btn-trash" title="Lixeira">&#128465; Lixeira</button>
     </div>
     <div id="notes-list"></div>
   `;
+
+  document.getElementById('btn-trash').addEventListener('click', renderTrashList);
 
   try {
     const [apiCats, apiTags] = await Promise.all([api.getCategories(), api.getTags()]);
@@ -115,9 +118,72 @@ async function loadNotes() {
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
       const id = btn.dataset.id;
-      await api.deleteNote(id);
-      showToast('Nota excluida', 'success');
+      await api.trashNote(id);
+      showToast('Nota movida para lixeira', 'success');
       await loadNotes();
+    });
+  });
+}
+
+async function renderTrashList() {
+  currentView = 'trash';
+  const container = document.getElementById('view-notes');
+
+  container.innerHTML = `
+    <div class="header">
+      <button class="btn btn-secondary" id="btn-back-notes">Voltar</button>
+      <div class="header-actions">
+        <button class="btn btn-danger" id="btn-empty-trash">Esvaziar lixeira</button>
+      </div>
+    </div>
+    <div id="trash-list"></div>
+  `;
+
+  document.getElementById('btn-back-notes').addEventListener('click', renderNotesList);
+  document.getElementById('btn-empty-trash').addEventListener('click', async () => {
+    const count = await api.emptyTrash();
+    showToast(`${count} notas excluidas permanentemente`, 'success');
+    renderTrashList();
+  });
+
+  const notes = await api.getTrashedNotes();
+  const list = document.getElementById('trash-list');
+
+  if (notes.length === 0) {
+    list.innerHTML = '<div class="empty">Lixeira vazia</div>';
+    return;
+  }
+
+  list.innerHTML = notes.map(note => `
+    <div class="card" data-id="${note.id}">
+      <div class="card-header">
+        <div class="card-title">${escapeHtml(note.title || 'Sem titulo')}</div>
+        <div class="header-actions">
+          <button class="btn btn-secondary btn-sm" data-restore="${note.id}">Restaurar</button>
+          <button class="btn btn-danger btn-sm" data-delete="${note.id}">Excluir</button>
+        </div>
+      </div>
+      <div class="card-meta">
+        <span>${formatDate(note.updated_at)}</span>
+      </div>
+    </div>
+  `).join('');
+
+  list.querySelectorAll('[data-restore]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await api.restoreNote(btn.dataset.restore);
+      showToast('Nota restaurada', 'success');
+      renderTrashList();
+    });
+  });
+
+  list.querySelectorAll('[data-delete]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await api.deleteNote(btn.dataset.delete);
+      showToast('Nota excluida permanentemente', 'success');
+      renderTrashList();
     });
   });
 }
@@ -275,8 +341,8 @@ function openEditor(note) {
     });
 
     document.getElementById('btn-delete-note').addEventListener('click', async () => {
-      await api.deleteNote(note.id);
-      showToast('Nota excluida', 'success');
+      await api.trashNote(note.id);
+      showToast('Nota movida para lixeira', 'success');
       currentView = 'list';
       renderNotesList();
     });

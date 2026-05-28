@@ -42,11 +42,16 @@ fn main() {
             commands::create_note,
             commands::update_note,
             commands::delete_note,
+            commands::trash_note,
+            commands::restore_note,
+            commands::empty_trash,
+            commands::get_trashed_notes,
             commands::get_reminders,
             commands::create_reminder,
             commands::update_reminder,
             commands::delete_reminder,
             commands::dismiss_reminder,
+            commands::snooze_reminder,
             commands::get_config,
             commands::update_config,
             commands::get_categories,
@@ -54,6 +59,8 @@ fn main() {
             commands::set_always_on_top,
             commands::save_image,
             commands::update_shortcut,
+            commands::export_data,
+            commands::import_data,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

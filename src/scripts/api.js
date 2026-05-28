@@ -1,4 +1,3 @@
-// Tauri v2 IPC - __TAURI_INTERNALS__ is always available in the webview
 async function invoke(cmd, args = {}) {
   return window.__TAURI_INTERNALS__.invoke(cmd, args);
 }
@@ -10,6 +9,10 @@ export const api = {
   createNote: (input) => invoke('create_note', { input }),
   updateNote: (input) => invoke('update_note', { input }),
   deleteNote: (id) => invoke('delete_note', { id }),
+  trashNote: (id) => invoke('trash_note', { id }),
+  restoreNote: (id) => invoke('restore_note', { id }),
+  emptyTrash: () => invoke('empty_trash'),
+  getTrashedNotes: () => invoke('get_trashed_notes'),
 
   // Reminders
   getReminders: (status) => invoke('get_reminders', { status }),
@@ -17,6 +20,7 @@ export const api = {
   updateReminder: (input) => invoke('update_reminder', { input }),
   deleteReminder: (id) => invoke('delete_reminder', { id }),
   dismissReminder: (id) => invoke('dismiss_reminder', { id }),
+  snoozeReminder: (id, minutes) => invoke('snooze_reminder', { id, minutes }),
 
   // Config
   getConfig: () => invoke('get_config'),
@@ -32,4 +36,8 @@ export const api = {
 
   // Images
   saveImage: (base64Data, noteId) => invoke('save_image', { base64_data: base64Data, note_id: noteId }),
+
+  // Export/Import
+  exportData: () => invoke('export_data'),
+  importData: (jsonData) => invoke('import_data', { jsonData }),
 };

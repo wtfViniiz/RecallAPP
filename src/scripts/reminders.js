@@ -48,14 +48,21 @@ async function loadReminders() {
           ${r.status === 'pending' ? `<span>${formatRelativeDate(r.trigger_at)}</span>` : ''}
         </div>
         ${r.description ? `<div class="card-meta">${escapeHtml(r.description)}</div>` : ''}
-        ${r.status === 'fired' ? `<button class="btn btn-secondary btn-sm" data-dismiss="${r.id}">Dispensar</button>` : ''}
+        ${r.status === 'fired' ? `
+          <div class="card-actions">
+            <button class="btn btn-secondary btn-sm" data-snooze="${r.id}" data-minutes="5">+5min</button>
+            <button class="btn btn-secondary btn-sm" data-snooze="${r.id}" data-minutes="15">+15min</button>
+            <button class="btn btn-secondary btn-sm" data-snooze="${r.id}" data-minutes="60">+1h</button>
+            <button class="btn btn-secondary btn-sm" data-dismiss="${r.id}">Dispensar</button>
+          </div>
+        ` : ''}
       </div>
     `;
   }).join('');
 
   list.querySelectorAll('.card').forEach(card => {
     card.addEventListener('click', (e) => {
-      if (e.target.dataset.dismiss) return;
+      if (e.target.dataset.dismiss || e.target.dataset.snooze) return;
       const reminder = reminders.find(r => r.id === card.dataset.id);
       openReminderForm(reminder);
     });
@@ -66,6 +73,17 @@ async function loadReminders() {
       e.stopPropagation();
       await api.dismissReminder(btn.dataset.dismiss);
       showToast('Lembrete dispensado', 'success');
+      await loadReminders();
+    });
+  });
+
+  list.querySelectorAll('[data-snooze]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const id = btn.dataset.snooze;
+      const minutes = parseInt(btn.dataset.minutes);
+      await api.snoozeReminder(id, minutes);
+      showToast(`Lembrete adiado ${minutes} minutos`, 'success');
       await loadReminders();
     });
   });
