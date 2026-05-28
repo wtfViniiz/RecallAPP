@@ -100,7 +100,7 @@ pub fn list_notes_at(data_dir: &Path, filter: Option<NoteFilter>) -> Vec<Note> {
 
     notes.retain(|n| !n.trashed);
 
-    if let Some(filter) = filter {
+    if let Some(ref filter) = filter {
         if let Some(search) = &filter.search {
             let search_lower = search.to_lowercase();
             notes.retain(|n| {
@@ -122,6 +122,18 @@ pub fn list_notes_at(data_dir: &Path, filter: Option<NoteFilter>) -> Vec<Note> {
             .reverse()
             .then_with(|| b.updated_at.cmp(&a.updated_at))
     });
+
+    // Apply pagination if requested
+    let offset = filter.as_ref().and_then(|f| f.offset).unwrap_or(0);
+    let limit = filter.as_ref().and_then(|f| f.limit);
+    if offset > 0 && offset < notes.len() {
+        notes = notes.into_iter().skip(offset).collect();
+    } else if offset >= notes.len() {
+        notes.clear();
+    }
+    if let Some(limit) = limit {
+        notes.truncate(limit);
+    }
 
     notes
 }

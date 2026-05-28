@@ -17,14 +17,71 @@ impl NoteCache {
         }
     }
 
-    // --- Notes ---
+    // --- Internal: single-lock helpers to prevent TOCTOU races ---
 
-    fn ensure_notes(&self, app: &AppHandle) {
+    fn with_notes<F, R>(&self, app: &AppHandle, f: F) -> R
+    where
+        F: FnOnce(&[Note]) -> R,
+    {
         let mut guard = self.notes.lock().unwrap();
         if guard.is_none() {
-            let notes = storage::list_all_notes(app);
-            *guard = Some(notes);
+            *guard = Some(storage::list_all_notes(app));
         }
+        f(guard.as_ref().unwrap())
+    }
+
+    fn with_reminders<F, R>(&self, app: &AppHandle, f: F) -> R
+    where
+        F: FnOnce(&[Reminder]) -> R,
+    {
+        let mut guard = self.reminders.lock().unwrap();
+        if guard.is_none() {
+            *guard = Some(storage::list_reminders(app, None));
+        }
+        f(guard.as_ref().unwrap())
+    }
+
+    // --- Notes ---
+
+    pub fn list_notes(&self, app: &AppHandle, filter: Option<NoteFilter>) -> Vec<Note> {
+        self.with_notes(app, |notes| {
+            let mut filtered: Vec<Note> = notes
+                .iter()
+                .filter(|n| !n.trashed)
+                .filter(|n| {
+                    if let Some(ref f) = filter {
+                        if let Some(ref search) = f.search {
+                            let search_lower = search.to_lowercase();
+                            if !n.title.to_lowercase().contains(&search_lower)
+                                && !n.content.to_lowercase().contains(&search_lower)
+                            {
+                                return false;
+                            }
+                        }
+                        if let Some(ref cat) = f.category {
+                            if n.category.as_ref() != Some(cat) {
+                                return false;
+                            }
+                        }
+                        if let Some(ref tag) = f.tag {
+                            if !n.tags.contains(tag) {
+                                return false;
+                            }
+                        }
+                    }
+                    true
+                })
+                .cloned()
+                .collect();
+
+            filtered.sort_by(|a, b| {
+                b.pinned
+                    .cmp(&a.pinned)
+                    .then_with(|| b.updated_at.cmp(&a.updated_at))
+            });
+
+            filtered
+        })
     }
 
     pub fn list_notes_paginated(
@@ -45,6 +102,60 @@ impl NoteCache {
             notes.truncate(limit);
         }
         PaginatedResult { items: notes, total }
+    }
+
+    pub fn list_all_notes(&self, app: &AppHandle) -> Vec<Note> {
+        self.with_notes(app, |notes| notes.to_vec())
+    }
+
+    pub fn list_trashed_notes(&self, app: &AppHandle) -> Vec<Note> {
+        self.with_notes(app, |notes| {
+            notes.iter().filter(|n| n.trashed).cloned().collect()
+        })
+    }
+
+    pub fn get_note(&self, app: &AppHandle, id: &str) -> Option<Note> {
+        self.with_notes(app, |notes| {
+            notes.iter().find(|n| n.id == id).cloned()
+        })
+    }
+
+    pub fn save_note(&self, app: &AppHandle, note: &Note) -> Result<(), String> {
+        storage::save_note(app, note)?;
+        self.invalidate_notes();
+        Ok(())
+    }
+
+    pub fn delete_note(&self, app: &AppHandle, id: &str) -> Result<(), String> {
+        storage::delete_note(app, id)?;
+        self.invalidate_notes();
+        Ok(())
+    }
+
+    pub fn invalidate_notes(&self) {
+        let mut guard = self.notes.lock().unwrap();
+        *guard = None;
+    }
+
+    // --- Reminders ---
+
+    pub fn list_reminders(&self, app: &AppHandle, status: Option<String>) -> Vec<Reminder> {
+        self.with_reminders(app, |reminders| {
+            let mut filtered: Vec<Reminder> = reminders
+                .iter()
+                .filter(|r| {
+                    if let Some(ref s) = status {
+                        r.status == *s
+                    } else {
+                        true
+                    }
+                })
+                .cloned()
+                .collect();
+
+            filtered.sort_by(|a, b| a.trigger_at.cmp(&b.trigger_at));
+            filtered
+        })
     }
 
     pub fn list_reminders_paginated(
@@ -68,130 +179,10 @@ impl NoteCache {
         }
     }
 
-    pub fn list_notes(&self, app: &AppHandle, filter: Option<NoteFilter>) -> Vec<Note> {
-        self.ensure_notes(app);
-        let guard = self.notes.lock().unwrap();
-        let notes = guard.as_ref().unwrap();
-
-        let mut filtered: Vec<Note> = notes
-            .iter()
-            .filter(|n| !n.trashed)
-            .filter(|n| {
-                if let Some(ref f) = filter {
-                    if let Some(ref search) = f.search {
-                        let search_lower = search.to_lowercase();
-                        let title_match = n.title.to_lowercase().contains(&search_lower);
-                        let content_match = n.content.to_lowercase().contains(&search_lower);
-                        if !title_match && !content_match {
-                            return false;
-                        }
-                    }
-                    if let Some(ref cat) = f.category {
-                        if n.category.as_ref() != Some(cat) {
-                            return false;
-                        }
-                    }
-                    if let Some(ref tag) = f.tag {
-                        if !n.tags.contains(tag) {
-                            return false;
-                        }
-                    }
-                }
-                true
-            })
-            .cloned()
-            .collect();
-
-        filtered.sort_by(|a, b| {
-            b.pinned
-                .cmp(&a.pinned)
-                .then_with(|| b.updated_at.cmp(&a.updated_at))
-        });
-
-        filtered
-    }
-
-    pub fn list_all_notes(&self, app: &AppHandle) -> Vec<Note> {
-        self.ensure_notes(app);
-        let guard = self.notes.lock().unwrap();
-        guard.as_ref().unwrap().clone()
-    }
-
-    pub fn list_trashed_notes(&self, app: &AppHandle) -> Vec<Note> {
-        self.ensure_notes(app);
-        let guard = self.notes.lock().unwrap();
-        guard
-            .as_ref()
-            .unwrap()
-            .iter()
-            .filter(|n| n.trashed)
-            .cloned()
-            .collect()
-    }
-
-    pub fn get_note(&self, app: &AppHandle, id: &str) -> Option<Note> {
-        self.ensure_notes(app);
-        let guard = self.notes.lock().unwrap();
-        guard.as_ref().unwrap().iter().find(|n| n.id == id).cloned()
-    }
-
-    pub fn save_note(&self, app: &AppHandle, note: &Note) -> Result<(), String> {
-        storage::save_note(app, note)?;
-        self.invalidate_notes();
-        Ok(())
-    }
-
-    pub fn delete_note(&self, app: &AppHandle, id: &str) -> Result<(), String> {
-        storage::delete_note(app, id)?;
-        self.invalidate_notes();
-        Ok(())
-    }
-
-    pub fn invalidate_notes(&self) {
-        let mut guard = self.notes.lock().unwrap();
-        *guard = None;
-    }
-
-    // --- Reminders ---
-
-    fn ensure_reminders(&self, app: &AppHandle) {
-        let mut guard = self.reminders.lock().unwrap();
-        if guard.is_none() {
-            let reminders = storage::list_reminders(app, None);
-            *guard = Some(reminders);
-        }
-    }
-
-    pub fn list_reminders(&self, app: &AppHandle, status: Option<String>) -> Vec<Reminder> {
-        self.ensure_reminders(app);
-        let guard = self.reminders.lock().unwrap();
-        let reminders = guard.as_ref().unwrap();
-
-        let mut filtered: Vec<Reminder> = reminders
-            .iter()
-            .filter(|r| {
-                if let Some(ref s) = status {
-                    r.status == *s
-                } else {
-                    true
-                }
-            })
-            .cloned()
-            .collect();
-
-        filtered.sort_by(|a, b| a.trigger_at.cmp(&b.trigger_at));
-        filtered
-    }
-
     pub fn get_reminder(&self, app: &AppHandle, id: &str) -> Option<Reminder> {
-        self.ensure_reminders(app);
-        let guard = self.reminders.lock().unwrap();
-        guard
-            .as_ref()
-            .unwrap()
-            .iter()
-            .find(|r| r.id == id)
-            .cloned()
+        self.with_reminders(app, |reminders| {
+            reminders.iter().find(|r| r.id == id).cloned()
+        })
     }
 
     pub fn save_reminder(&self, app: &AppHandle, reminder: &Reminder) -> Result<(), String> {

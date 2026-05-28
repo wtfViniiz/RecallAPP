@@ -230,3 +230,144 @@ fn test_empty_directory() {
     let trashed = storage::list_trashed_notes_at(&data_dir);
     assert_eq!(trashed.len(), 0);
 }
+
+#[test]
+fn test_pagination_limit() {
+    let (_tmp, data_dir) = setup();
+    for i in 0..10 {
+        storage::save_note_at(&data_dir, &make_note(&format!("n{}", i), &format!("Note {}", i))).unwrap();
+    }
+
+    let filter = NoteFilter {
+        search: None,
+        category: None,
+        tag: None,
+        offset: None,
+        limit: Some(3),
+    };
+    let notes = storage::list_notes_at(&data_dir, Some(filter));
+    assert_eq!(notes.len(), 3);
+}
+
+#[test]
+fn test_pagination_offset() {
+    let (_tmp, data_dir) = setup();
+    for i in 0..10 {
+        storage::save_note_at(&data_dir, &make_note(&format!("n{}", i), &format!("Note {}", i))).unwrap();
+    }
+
+    let filter = NoteFilter {
+        search: None,
+        category: None,
+        tag: None,
+        offset: Some(5),
+        limit: None,
+    };
+    let notes = storage::list_notes_at(&data_dir, Some(filter));
+    assert_eq!(notes.len(), 5);
+}
+
+#[test]
+fn test_pagination_offset_and_limit() {
+    let (_tmp, data_dir) = setup();
+    for i in 0..10 {
+        storage::save_note_at(&data_dir, &make_note(&format!("n{}", i), &format!("Note {}", i))).unwrap();
+    }
+
+    // Page 1: offset=0, limit=3
+    let filter1 = NoteFilter {
+        search: None,
+        category: None,
+        tag: None,
+        offset: Some(0),
+        limit: Some(3),
+    };
+    let page1 = storage::list_notes_at(&data_dir, Some(filter1));
+    assert_eq!(page1.len(), 3);
+
+    // Page 2: offset=3, limit=3
+    let filter2 = NoteFilter {
+        search: None,
+        category: None,
+        tag: None,
+        offset: Some(3),
+        limit: Some(3),
+    };
+    let page2 = storage::list_notes_at(&data_dir, Some(filter2));
+    assert_eq!(page2.len(), 3);
+
+    // No overlap
+    let page1_ids: Vec<_> = page1.iter().map(|n| &n.id).collect();
+    let page2_ids: Vec<_> = page2.iter().map(|n| &n.id).collect();
+    for id in &page1_ids {
+        assert!(!page2_ids.contains(id));
+    }
+
+    // Page 3: offset=6, limit=3
+    let filter3 = NoteFilter {
+        search: None,
+        category: None,
+        tag: None,
+        offset: Some(6),
+        limit: Some(3),
+    };
+    let page3 = storage::list_notes_at(&data_dir, Some(filter3));
+    assert_eq!(page3.len(), 3);
+
+    // Page 4: offset=9, limit=3 (only 1 remaining)
+    let filter4 = NoteFilter {
+        search: None,
+        category: None,
+        tag: None,
+        offset: Some(9),
+        limit: Some(3),
+    };
+    let page4 = storage::list_notes_at(&data_dir, Some(filter4));
+    assert_eq!(page4.len(), 1);
+}
+
+#[test]
+fn test_pagination_offset_beyond_total() {
+    let (_tmp, data_dir) = setup();
+    for i in 0..5 {
+        storage::save_note_at(&data_dir, &make_note(&format!("n{}", i), &format!("Note {}", i))).unwrap();
+    }
+
+    let filter = NoteFilter {
+        search: None,
+        category: None,
+        tag: None,
+        offset: Some(100),
+        limit: Some(10),
+    };
+    let notes = storage::list_notes_at(&data_dir, Some(filter));
+    assert_eq!(notes.len(), 0);
+}
+
+#[test]
+fn test_pagination_with_filter() {
+    let (_tmp, data_dir) = setup();
+    let mut n1 = make_note("n1", "Rust A");
+    n1.category = Some("Work".to_string());
+    let mut n2 = make_note("n2", "Rust B");
+    n2.category = Some("Work".to_string());
+    let mut n3 = make_note("n3", "Rust C");
+    n3.category = Some("Personal".to_string());
+    let n4 = make_note("n4", "Python");
+    storage::save_note_at(&data_dir, &n1).unwrap();
+    storage::save_note_at(&data_dir, &n2).unwrap();
+    storage::save_note_at(&data_dir, &n3).unwrap();
+    storage::save_note_at(&data_dir, &n4).unwrap();
+
+    // Filter by category + pagination
+    let filter = NoteFilter {
+        search: None,
+        category: Some("Work".to_string()),
+        tag: None,
+        offset: Some(0),
+        limit: Some(1),
+    };
+    let notes = storage::list_notes_at(&data_dir, Some(filter));
+    assert_eq!(notes.len(), 1);
+    assert_eq!(notes[0].category, Some("Work".to_string()));
+}
