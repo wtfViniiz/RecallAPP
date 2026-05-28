@@ -1,8 +1,9 @@
-use crate::models::{Config, Note, NoteFilter, Reminder};
+use crate::models::{Config, CustomTemplate, Note, NoteFilter, NoteVersion, Reminder};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Once;
 use tauri::Manager;
+use uuid::Uuid;
 
 static DIR_INIT: Once = Once::new();
 
@@ -21,6 +22,9 @@ fn data_dir(app_handle: &tauri::AppHandle) -> PathBuf {
         if let Err(e) = fs::create_dir_all(dir.join("reminders")) {
             eprintln!("[Recall] Erro ao criar diretorio reminders: {}", e);
         }
+        if let Err(e) = fs::create_dir_all(dir.join("versions")) {
+            eprintln!("[Recall] Erro ao criar diretorio versions: {}", e);
+        }
     });
     dir
 }
@@ -30,6 +34,7 @@ fn data_dir(app_handle: &tauri::AppHandle) -> PathBuf {
 pub fn ensure_dirs(data_dir: &Path) {
     let _ = fs::create_dir_all(data_dir.join("notes"));
     let _ = fs::create_dir_all(data_dir.join("reminders"));
+    let _ = fs::create_dir_all(data_dir.join("versions"));
 }
 
 /// Atomic write: writes to .tmp then renames to prevent corruption
@@ -132,7 +137,12 @@ pub fn list_notes_at(data_dir: &Path, filter: Option<NoteFilter>) -> Vec<Note> {
         a.pinned
             .cmp(&b.pinned)
             .reverse()
-            .then_with(|| b.updated_at.cmp(&a.updated_at))
+            .then_with(|| match (a.position, b.position) {
+                (Some(pa), Some(pb)) => pa.cmp(&pb),
+                (Some(_), None) => std::cmp::Ordering::Less,
+                (None, Some(_)) => std::cmp::Ordering::Greater,
+                (None, None) => b.updated_at.cmp(&a.updated_at),
+            })
     });
 
     // Apply pagination if requested
@@ -221,6 +231,110 @@ pub fn save_note_at(data_dir: &Path, note: &Note) -> Result<(), String> {
 pub fn delete_note_at(data_dir: &Path, id: &str) -> Result<(), String> {
     let path = data_dir.join("notes").join(format!("{}.json", id));
     fs::remove_file(path).map_err(|e| e.to_string())
+}
+
+// --- Note Versions ---
+
+pub fn save_note_version(app_handle: &tauri::AppHandle, note: &Note) -> Result<(), String> {
+    save_note_version_at(&data_dir(app_handle), note)
+}
+
+pub fn save_note_version_at(data_dir: &Path, note: &Note) -> Result<(), String> {
+    let versions_dir = data_dir.join("versions").join(&note.id);
+    fs::create_dir_all(&versions_dir).map_err(|e| e.to_string())?;
+
+    let version = NoteVersion {
+        id: Uuid::new_v4().to_string(),
+        note_id: note.id.clone(),
+        title: note.title.clone(),
+        content: note.content.clone(),
+        category: note.category.clone(),
+        tags: note.tags.clone(),
+        created_at: chrono::Utc::now().to_rfc3339(),
+    };
+
+    let path = versions_dir.join(format!("{}.json", version.id));
+    let json = serde_json::to_string_pretty(&version).map_err(|e| e.to_string())?;
+    atomic_write(&path, &json)?;
+
+    // Keep only last 20 versions
+    let mut versions = list_note_versions_at(data_dir, &note.id);
+    if versions.len() > 20 {
+        versions.sort_by(|a, b| a.created_at.cmp(&b.created_at));
+        for v in &versions[..versions.len() - 20] {
+            let _ = fs::remove_file(versions_dir.join(format!("{}.json", v.id)));
+        }
+    }
+
+    Ok(())
+}
+
+pub fn list_note_versions(app_handle: &tauri::AppHandle, note_id: &str) -> Vec<NoteVersion> {
+    list_note_versions_at(&data_dir(app_handle), note_id)
+}
+
+pub fn list_note_versions_at(data_dir: &Path, note_id: &str) -> Vec<NoteVersion> {
+    let versions_dir = data_dir.join("versions").join(note_id);
+    let mut versions: Vec<NoteVersion> = fs::read_dir(&versions_dir)
+        .ok()
+        .into_iter()
+        .flatten()
+        .filter_map(|entry| {
+            let entry = entry.ok()?;
+            let content = fs::read_to_string(entry.path()).ok()?;
+            serde_json::from_str(&content).ok()
+        })
+        .collect();
+
+    versions.sort_by(|a, b| b.created_at.cmp(&a.created_at));
+    versions
+}
+
+pub fn restore_note_version(app_handle: &tauri::AppHandle, note_id: &str, version_id: &str) -> Result<Note, String> {
+    restore_note_version_at(&data_dir(app_handle), note_id, version_id)
+}
+
+pub fn restore_note_version_at(data_dir: &Path, note_id: &str, version_id: &str) -> Result<Note, String> {
+    let version_path = data_dir.join("versions").join(note_id).join(format!("{}.json", version_id));
+    let content = fs::read_to_string(&version_path).map_err(|e| format!("Versao nao encontrada: {}", e))?;
+    let version: NoteVersion = serde_json::from_str(&content).map_err(|e| e.to_string())?;
+
+    let mut note = get_note_at(data_dir, note_id).ok_or("Nota nao encontrada")?;
+    // Save current state as a version before restoring
+    let _ = save_note_version_at(data_dir, &note);
+
+    note.title = version.title;
+    note.content = version.content;
+    note.category = version.category;
+    note.tags = version.tags;
+    note.updated_at = chrono::Utc::now().to_rfc3339();
+    save_note_at(data_dir, &note)?;
+
+    Ok(note)
+}
+
+// --- Custom Templates ---
+
+pub fn load_custom_templates(app_handle: &tauri::AppHandle) -> Vec<CustomTemplate> {
+    load_custom_templates_at(&data_dir(app_handle))
+}
+
+pub fn load_custom_templates_at(data_dir: &Path) -> Vec<CustomTemplate> {
+    let path = data_dir.join("templates.json");
+    match fs::read_to_string(&path) {
+        Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
+        Err(_) => Vec::new(),
+    }
+}
+
+pub fn save_custom_templates(app_handle: &tauri::AppHandle, templates: &[CustomTemplate]) -> Result<(), String> {
+    save_custom_templates_at(&data_dir(app_handle), templates)
+}
+
+pub fn save_custom_templates_at(data_dir: &Path, templates: &[CustomTemplate]) -> Result<(), String> {
+    let path = data_dir.join("templates.json");
+    let json = serde_json::to_string_pretty(templates).map_err(|e| e.to_string())?;
+    atomic_write(&path, &json)
 }
 
 // --- Reminders (_at variants) ---
@@ -373,6 +487,7 @@ mod tests {
             pinned: false,
             trashed: false,
             trashed_at: None,
+            position: None,
             schema_version: 1,
             created_at: "2026-05-27T14:00:00Z".to_string(),
             updated_at: "2026-05-27T14:00:00Z".to_string(),
@@ -413,6 +528,7 @@ mod tests {
             pinned: false,
             trashed: false,
             trashed_at: None,
+            position: None,
             schema_version: 0,
             created_at: "".to_string(),
             updated_at: "".to_string(),
@@ -432,6 +548,7 @@ mod tests {
             pinned: false,
             trashed: false,
             trashed_at: None,
+            position: None,
             schema_version: 1,
             created_at: "".to_string(),
             updated_at: "".to_string(),
@@ -552,6 +669,7 @@ mod tests {
             pinned: true,
             trashed: false,
             trashed_at: None,
+            position: None,
             schema_version: 1,
             created_at: "2026-05-28T10:00:00Z".to_string(),
             updated_at: "2026-05-28T10:00:00Z".to_string(),

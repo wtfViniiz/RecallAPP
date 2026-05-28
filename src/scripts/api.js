@@ -42,4 +42,13 @@ export const api = {
   // Export/Import
   exportData: () => invoke('export_data'),
   importData: (jsonData) => invoke('import_data', { jsonData }),
+
+  // Version History
+  listNoteVersions: (noteId) => invoke('list_note_versions', { noteId }),
+  restoreNoteVersion: (noteId, versionId) => invoke('restore_note_version', { noteId, versionId }),
+
+  // Custom Templates
+  getCustomTemplates: () => invoke('get_custom_templates'),
+  saveCustomTemplate: (input) => invoke('save_custom_template', { input }),
+  deleteCustomTemplate: (id) => invoke('delete_custom_template', { id }),
 };

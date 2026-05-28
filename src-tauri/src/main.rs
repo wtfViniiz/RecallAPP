@@ -59,6 +59,11 @@ fn main() {
             commands::update_shortcut,
             commands::export_data,
             commands::import_data,
+            commands::list_note_versions,
+            commands::restore_note_version,
+            commands::get_custom_templates,
+            commands::save_custom_template,
+            commands::delete_custom_template,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

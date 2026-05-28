@@ -68,6 +68,7 @@ pub fn create_note(app: AppHandle, cache: State<'_, NoteCache>, input: CreateNot
         pinned: false,
         trashed: false,
         trashed_at: None,
+        position: None,
         schema_version: 1,
         created_at: now.clone(),
         updated_at: now,
@@ -86,7 +87,10 @@ pub fn update_note(app: AppHandle, cache: State<'_, NoteCache>, input: UpdateNot
         validate_string(content, 100_000, "Conteudo")?;
     }
 
-    let mut note = cache.get_note(&app, &input.id).ok_or("Nota nao encontrada")?;
+    let note = cache.get_note(&app, &input.id).ok_or("Nota nao encontrada")?;
+    // Save version snapshot before updating
+    let _ = storage::save_note_version(&app, &note);
+    let mut note = note;
     if let Some(title) = input.title {
         note.title = title;
     }
@@ -101,6 +105,9 @@ pub fn update_note(app: AppHandle, cache: State<'_, NoteCache>, input: UpdateNot
     }
     if let Some(pinned) = input.pinned {
         note.pinned = pinned;
+    }
+    if let Some(position) = input.position {
+        note.position = Some(position);
     }
     note.updated_at = Utc::now().to_rfc3339();
     cache.save_note(&app, &note)?;
@@ -444,6 +451,47 @@ pub fn update_shortcut(app: AppHandle, shortcut_str: String) -> Result<(), Strin
         .map_err(|e| e.to_string())?;
 
     Ok(())
+}
+
+#[tauri::command]
+pub fn list_note_versions(app: AppHandle, note_id: String) -> Result<Vec<NoteVersion>, String> {
+    validate_id(&note_id)?;
+    Ok(storage::list_note_versions(&app, &note_id))
+}
+
+#[tauri::command]
+pub fn restore_note_version(app: AppHandle, cache: State<'_, NoteCache>, note_id: String, version_id: String) -> Result<Note, String> {
+    validate_id(&note_id)?;
+    validate_id(&version_id)?;
+    let note = storage::restore_note_version(&app, &note_id, &version_id)?;
+    cache.invalidate_notes();
+    Ok(note)
+}
+
+#[tauri::command]
+pub fn get_custom_templates(app: AppHandle) -> Vec<CustomTemplate> {
+    storage::load_custom_templates(&app)
+}
+
+#[tauri::command]
+pub fn save_custom_template(app: AppHandle, input: CustomTemplate) -> Result<CustomTemplate, String> {
+    validate_string(&input.name, 100, "Nome do template")?;
+    let mut templates = storage::load_custom_templates(&app);
+    if let Some(existing) = templates.iter_mut().find(|t| t.id == input.id) {
+        *existing = input.clone();
+    } else {
+        templates.push(input.clone());
+    }
+    storage::save_custom_templates(&app, &templates)?;
+    Ok(input)
+}
+
+#[tauri::command]
+pub fn delete_custom_template(app: AppHandle, id: String) -> Result<(), String> {
+    validate_id(&id)?;
+    let mut templates = storage::load_custom_templates(&app);
+    templates.retain(|t| t.id != id);
+    storage::save_custom_templates(&app, &templates)
 }
 
 #[tauri::command]

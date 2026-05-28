@@ -1,5 +1,5 @@
 import { api } from './api.js';
-import { formatDate, formatDateTime, escapeHtml, showToast, showConfirm, renderMarkdown, DEFAULT_CATEGORIES, DEFAULT_TAGS, NOTE_TEMPLATES } from './utils.js';
+import { formatDate, formatDateTime, escapeHtml, showToast, showConfirm, renderMarkdown, htmlToMarkdown, markdownToHtml, DEFAULT_CATEGORIES, DEFAULT_TAGS, NOTE_TEMPLATES } from './utils.js';
 
 let currentView = 'list';
 let currentNote = null;
@@ -88,7 +88,7 @@ async function renderNotesList() {
 
 function renderNoteCards(notes, searchQuery) {
   return notes.map(note => `
-    <div class="card ${note.pinned ? 'pinned' : ''}" data-id="${note.id}">
+    <div class="card ${note.pinned ? 'pinned' : ''}" data-id="${note.id}" draggable="true">
       <div class="card-header">
         <div class="card-title">${highlightMatch(note.title || 'Sem titulo', searchQuery)}</div>
         <button class="btn-icon delete-note-btn" data-id="${note.id}" title="Excluir">&#128465;</button>
@@ -103,11 +103,65 @@ function renderNoteCards(notes, searchQuery) {
 }
 
 function attachNoteCardHandlers(list, notes) {
+  let draggedCard = null;
+
   list.querySelectorAll('.card').forEach(card => {
     card.addEventListener('click', (e) => {
       if (e.target.closest('.delete-note-btn')) return;
+      if (card.classList.contains('drag-over')) return;
       const note = notes.find(n => n.id === card.dataset.id);
       openEditor(note);
+    });
+
+    card.addEventListener('dragstart', (e) => {
+      draggedCard = card;
+      card.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', card.dataset.id);
+    });
+
+    card.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      if (card !== draggedCard) {
+        card.classList.add('drag-over');
+      }
+    });
+
+    card.addEventListener('dragleave', () => {
+      card.classList.remove('drag-over');
+    });
+
+    card.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      card.classList.remove('drag-over');
+      if (!draggedCard || draggedCard === card) return;
+
+      const allCards = Array.from(list.querySelectorAll('.card'));
+      const targetIndex = allCards.indexOf(card);
+      const draggedIndex = allCards.indexOf(draggedCard);
+
+      if (draggedIndex < targetIndex) {
+        card.after(draggedCard);
+      } else {
+        card.before(draggedCard);
+      }
+
+      const updatedCards = Array.from(list.querySelectorAll('.card'));
+      for (let i = 0; i < updatedCards.length; i++) {
+        const id = updatedCards[i].dataset.id;
+        try {
+          await api.updateNote({ id, position: i });
+        } catch (err) {}
+      }
+
+      showToast('Nota reposicionada', 'success');
+    });
+
+    card.addEventListener('dragend', () => {
+      card.classList.remove('dragging');
+      list.querySelectorAll('.card').forEach(c => c.classList.remove('drag-over'));
+      draggedCard = null;
     });
   });
 
@@ -163,7 +217,6 @@ async function loadNotes(append = false) {
   notesOffset += notes.length;
   attachNoteCardHandlers(list, notes);
 
-  // "Load More" button
   if (notesOffset < total) {
     const loadMoreHtml = '<div class="load-more-container"><button class="btn btn-secondary" id="btn-load-more">Carregar mais</button></div>';
     list.insertAdjacentHTML('beforeend', loadMoreHtml);
@@ -263,14 +316,20 @@ function highlightMatch(text, query) {
   return escaped.replace(regex, '<mark>$1</mark>');
 }
 
-function showTemplateSelector() {
+async function showTemplateSelector() {
   const container = document.getElementById('view-notes');
   currentView = 'templates';
+
+  let customTemplates = [];
+  try {
+    customTemplates = await api.getCustomTemplates();
+  } catch (e) {}
 
   container.innerHTML = `
     <div class="header">
       <button class="btn btn-secondary" id="btn-back-templates">Voltar</button>
       <h3>Nova nota</h3>
+      <button class="btn btn-primary btn-sm" id="btn-new-template" title="Criar template">+ Template</button>
     </div>
     <div class="template-grid">
       <div class="template-card" data-template="blank">
@@ -283,21 +342,105 @@ function showTemplateSelector() {
           <div class="template-name">${tpl.name}</div>
         </div>
       `).join('')}
+      ${customTemplates.map(tpl => `
+        <div class="template-card" data-template="custom:${tpl.id}">
+          <div class="template-icon">${tpl.icon || '&#128221;'}</div>
+          <div class="template-name">${escapeHtml(tpl.name)}</div>
+          <button class="btn-icon delete-template-btn" data-id="${tpl.id}" title="Excluir template" style="position:absolute;top:4px;right:4px;font-size:12px;">&times;</button>
+        </div>
+      `).join('')}
     </div>
   `;
 
+  // Make custom template cards position relative for the delete button
+  container.querySelectorAll('.template-card[data-template^="custom:"]').forEach(card => {
+    card.style.position = 'relative';
+  });
+
   document.getElementById('btn-back-templates').addEventListener('click', renderNotesList);
+  document.getElementById('btn-new-template').addEventListener('click', () => openTemplateEditor(null));
 
   container.querySelectorAll('.template-card').forEach(card => {
-    card.addEventListener('click', () => {
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('.delete-template-btn')) return;
       const templateKey = card.dataset.template;
       if (templateKey === 'blank') {
         openEditor(null);
+      } else if (templateKey.startsWith('custom:')) {
+        const id = templateKey.replace('custom:', '');
+        const tpl = customTemplates.find(t => t.id === id);
+        if (tpl) {
+          openEditor({ title: tpl.title, content: tpl.content, tags: [], category: null });
+        }
       } else {
         const tpl = NOTE_TEMPLATES[templateKey];
         openEditor({ title: tpl.title, content: tpl.content, tags: [], category: null });
       }
     });
+  });
+
+  container.querySelectorAll('.delete-template-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      showConfirm('Excluir este template?', async () => {
+        try {
+          await api.deleteCustomTemplate(btn.dataset.id);
+          showToast('Template excluido', 'success');
+          showTemplateSelector();
+        } catch (err) {
+          showToast('Erro ao excluir template', 'error');
+        }
+      });
+    });
+  });
+}
+
+function openTemplateEditor(tpl) {
+  const container = document.getElementById('view-notes');
+  currentView = 'template-editor';
+
+  container.innerHTML = `
+    <div class="header">
+      <button class="btn btn-secondary" id="btn-back-te">Voltar</button>
+      <h3>${tpl ? 'Editar' : 'Criar'} Template</h3>
+    </div>
+    <div class="form-group">
+      <label>Nome</label>
+      <input type="text" id="tpl-name" class="form-input" value="${tpl ? escapeHtml(tpl.name) : ''}" placeholder="Ex: Minha Reuniao">
+    </div>
+    <div class="form-group">
+      <label>Icon (emoji)</label>
+      <input type="text" id="tpl-icon" class="form-input" value="${tpl ? escapeHtml(tpl.icon || '') : ''}" placeholder="&#128221;" maxlength="4">
+    </div>
+    <div class="form-group">
+      <label>Titulo padrao</label>
+      <input type="text" id="tpl-title" class="form-input" value="${tpl ? escapeHtml(tpl.title) : ''}" placeholder="Ex: Reuniao - ">
+    </div>
+    <div class="form-group">
+      <label>Conteudo padrao</label>
+      <textarea id="tpl-content" class="form-input" rows="6" placeholder="Conteudo do template...">${tpl ? escapeHtml(tpl.content) : ''}</textarea>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" id="btn-save-tpl">Salvar</button>
+    </div>
+  `;
+
+  document.getElementById('btn-back-te').addEventListener('click', showTemplateSelector);
+  document.getElementById('btn-save-tpl').addEventListener('click', async () => {
+    const name = document.getElementById('tpl-name').value.trim();
+    if (!name) { showToast('Nome obrigatorio', 'error'); return; }
+    const input = {
+      id: tpl?.id || crypto.randomUUID(),
+      name,
+      icon: document.getElementById('tpl-icon').value.trim() || null,
+      title: document.getElementById('tpl-title').value.trim(),
+      content: document.getElementById('tpl-content').value,
+    };
+    try {
+      await api.saveCustomTemplate(input);
+      showToast('Template salvo', 'success');
+      showTemplateSelector();
+    } catch { showToast('Erro ao salvar', 'error'); }
   });
 }
 
@@ -315,6 +458,8 @@ function openEditor(note) {
       <div class="header-actions">
         <button class="btn btn-secondary" id="btn-toggle-preview" title="Visualizar">&#128065;</button>
         <button class="btn btn-secondary" id="btn-copy-all" title="Copiar tudo">&#128203;</button>
+        <button class="btn btn-secondary" id="btn-save-template" title="Salvar como template">&#128203;TPL</button>
+        ${note ? `<button class="btn btn-secondary" id="btn-versions" title="Historico de versoes">&#128337;</button>` : ''}
         ${note ? `<button class="btn btn-secondary" id="btn-pin-note" title="Fixar na lista">${note.pinned ? '&#9733;' : '&#9734;'}</button>` : ''}
         ${note ? `<button class="btn btn-danger" id="btn-delete-note">Excluir</button>` : ''}
       </div>
@@ -343,22 +488,28 @@ function openEditor(note) {
       </div>
     </div>
     <div class="markdown-toolbar" id="markdown-toolbar">
-      <button type="button" class="toolbar-btn" data-action="bold" title="Negrito (Ctrl+B)"><strong>B</strong></button>
-      <button type="button" class="toolbar-btn" data-action="italic" title="Italico (Ctrl+I)"><em>I</em></button>
-      <button type="button" class="toolbar-btn" data-action="heading" title="Titulo">H</button>
-      <button type="button" class="toolbar-btn" data-action="code" title="Codigo">&lt;/&gt;</button>
-      <button type="button" class="toolbar-btn" data-action="link" title="Link">&#128279;</button>
-      <button type="button" class="toolbar-btn" data-action="list" title="Lista">&#8226;</button>
-      <button type="button" class="toolbar-btn" data-action="quote" title="Citacao">&#8220;</button>
-      <button type="button" class="toolbar-btn" data-action="strikethrough" title="Tachado"><s>S</s></button>
+      <button type="button" class="toolbar-btn" data-command="bold" title="Negrito (Ctrl+B)"><strong>B</strong></button>
+      <button type="button" class="toolbar-btn" data-command="italic" title="Italico (Ctrl+I)"><em>I</em></button>
+      <button type="button" class="toolbar-btn" data-command="strikeThrough" title="Tachado"><s>S</s></button>
+      <button type="button" class="toolbar-btn" data-command="formatBlock" data-value="H3" title="Titulo">H</button>
+      <button type="button" class="toolbar-btn" data-command="insertUnorderedList" title="Lista">&#8226;</button>
+      <button type="button" class="toolbar-btn" data-command="formatBlock" data-value="BLOCKQUOTE" title="Citacao">&#8220;</button>
+      <button type="button" class="toolbar-btn" id="btn-insert-code" title="Codigo">&lt;/&gt;</button>
+      <button type="button" class="toolbar-btn" id="btn-insert-link" title="Link">&#128279;</button>
     </div>
     <div class="editor-wrapper" id="editor-wrapper">
-      <div class="line-numbers" id="line-numbers"></div>
       <div class="editor-container">
-        <textarea id="note-content" placeholder="Comece a escrever... (Ctrl+V para colar imagens)">${note ? escapeHtml(note.content) : ''}</textarea>
+        <div id="note-content" class="wysiwyg-editor" contenteditable="true">${note ? markdownToHtml(note.content) : ''}</div>
       </div>
     </div>
     <div class="markdown-preview" id="markdown-preview" style="display:none"></div>
+    <div class="versions-panel" id="versions-panel" style="display:none">
+      <div class="versions-header">
+        <span>Historico de versoes</span>
+        <button class="btn btn-sm btn-secondary" id="btn-close-versions">&times;</button>
+      </div>
+      <div class="versions-list" id="versions-list"></div>
+    </div>
     ${note ? `
       <div class="timestamp">Criada: ${formatDateTime(note.created_at)}</div>
       <div class="timestamp">Editada: ${formatDateTime(note.updated_at)}</div>
@@ -368,86 +519,75 @@ function openEditor(note) {
 
   const titleInput = document.getElementById('note-title');
   const contentInput = document.getElementById('note-content');
-  const lineNumbers = document.getElementById('line-numbers');
 
-  function updateLineNumbers() {
-    const lines = contentInput.value.split('\n');
-    lineNumbers.innerHTML = lines.map((_, i) => {
-      const isEven = i % 2 === 0;
-      return `<div class="line-number ${isEven ? 'even' : 'odd'}" data-line="${i}">${i + 1}</div>`;
-    }).join('');
-  }
-
-  updateLineNumbers();
-  contentInput.addEventListener('input', updateLineNumbers);
-  contentInput.addEventListener('scroll', () => {
-    lineNumbers.scrollTop = contentInput.scrollTop;
-  });
-
-  // Markdown toolbar
-  function insertMarkdown(action) {
-    const start = contentInput.selectionStart;
-    const end = contentInput.selectionEnd;
-    const selected = contentInput.value.substring(start, end);
-    let before = '', after = '', replacement = '';
-
-    switch (action) {
-      case 'bold':
-        before = '**'; after = '**';
-        replacement = selected || 'negrito';
-        break;
-      case 'italic':
-        before = '*'; after = '*';
-        replacement = selected || 'italico';
-        break;
-      case 'heading':
-        before = '### ';
-        replacement = selected || 'Titulo';
-        break;
-      case 'code':
-        if (selected.includes('\n')) {
-          before = '```\n'; after = '\n```';
-        } else {
-          before = '`'; after = '`';
-        }
-        replacement = selected || 'codigo';
-        break;
-      case 'link':
-        before = '['; after = '](url)';
-        replacement = selected || 'texto';
-        break;
-      case 'list':
-        before = '- ';
-        replacement = selected || 'item';
-        break;
-      case 'quote':
-        before = '> ';
-        replacement = selected || 'citacao';
-        break;
-      case 'strikethrough':
-        before = '~~'; after = '~~';
-        replacement = selected || 'tachado';
-        break;
-    }
-
-    const newText = before + replacement + after;
-    contentInput.setRangeText(newText, start, end, 'end');
-    contentInput.focus();
-    contentInput.dispatchEvent(new Event('input'));
-  }
-
+  // --- WYSIWYG toolbar via execCommand ---
   document.getElementById('markdown-toolbar').addEventListener('click', (e) => {
     const btn = e.target.closest('.toolbar-btn');
-    if (btn) {
-      insertMarkdown(btn.dataset.action);
+    if (!btn) return;
+
+    const command = btn.dataset.command;
+    if (command) {
+      e.preventDefault();
+      contentInput.focus();
+      if (command === 'formatBlock') {
+        document.execCommand(command, false, btn.dataset.value);
+      } else {
+        document.execCommand(command, false, null);
+      }
+      return;
+    }
+
+    // Code inline
+    if (btn.id === 'btn-insert-code') {
+      e.preventDefault();
+      contentInput.focus();
+      const sel = window.getSelection();
+      if (sel.rangeCount > 0) {
+        const range = sel.getRangeAt(0);
+        const selected = range.toString();
+        const code = document.createElement('code');
+        code.textContent = selected || 'codigo';
+        range.deleteContents();
+        range.insertNode(code);
+        // Move cursor after
+        range.setStartAfter(code);
+        range.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+    }
+
+    // Link
+    if (btn.id === 'btn-insert-link') {
+      e.preventDefault();
+      contentInput.focus();
+      const sel = window.getSelection();
+      if (sel.rangeCount > 0) {
+        const range = sel.getRangeAt(0);
+        const selected = range.toString();
+        const url = prompt('URL:', 'https://');
+        if (url) {
+          const a = document.createElement('a');
+          a.href = url;
+          a.textContent = selected || 'link';
+          a.target = '_blank';
+          range.deleteContents();
+          range.insertNode(a);
+          range.setStartAfter(a);
+          range.collapse(true);
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+      }
     }
   });
 
   // Keyboard shortcuts for formatting
   contentInput.addEventListener('keydown', (e) => {
     if (e.ctrlKey || e.metaKey) {
-      if (e.key === 'b') { e.preventDefault(); insertMarkdown('bold'); }
-      if (e.key === 'i') { e.preventDefault(); insertMarkdown('italic'); }
+      if (e.key === 'b') { e.preventDefault(); document.execCommand('bold', false, null); }
+      if (e.key === 'i') { e.preventDefault(); document.execCommand('italic', false, null); }
+      if (e.key === 's') { e.preventDefault(); document.execCommand('strikeThrough', false, null); }
     }
   });
 
@@ -488,11 +628,21 @@ function openEditor(note) {
           try {
             const noteId = currentNote?.id || 'new';
             const path = await api.saveImage(base64, noteId);
-            const cursor = contentInput.selectionStart;
-            const text = contentInput.value;
-            const imgTag = `\n![Imagem](${path})\n`;
-            contentInput.value = text.slice(0, cursor) + imgTag + text.slice(cursor);
-            updateLineNumbers();
+            const img = document.createElement('img');
+            img.src = path;
+            img.style.maxWidth = '100%';
+            const sel = window.getSelection();
+            if (sel.rangeCount > 0) {
+              const range = sel.getRangeAt(0);
+              range.deleteContents();
+              range.insertNode(img);
+              range.setStartAfter(img);
+              range.collapse(true);
+              sel.removeAllRanges();
+              sel.addRange(range);
+            } else {
+              contentInput.appendChild(img);
+            }
             showToast('Imagem colada', 'success');
             autoSave();
           } catch (err) {
@@ -505,7 +655,7 @@ function openEditor(note) {
     }
   });
 
-  // Event delegation for chip removal (works for pre-rendered and new chips)
+  // Event delegation for chip removal
   document.getElementById('category-chips').addEventListener('click', (e) => {
     if (e.target.classList.contains('remove')) {
       e.target.parentElement.remove();
@@ -533,7 +683,7 @@ function openEditor(note) {
   });
 
   document.getElementById('btn-copy-all').addEventListener('click', async () => {
-    const content = contentInput.value;
+    const content = htmlToMarkdown(contentInput.innerHTML);
     const title = titleInput.value;
     const fullText = title ? `${title}\n\n${content}` : content;
     try {
@@ -541,6 +691,30 @@ function openEditor(note) {
       showToast('Nota copiada', 'success');
     } catch (e) {
       showToast('Erro ao copiar', 'error');
+    }
+  });
+
+  // Save as template
+  document.getElementById('btn-save-template').addEventListener('click', async () => {
+    const title = titleInput.value.trim();
+    const content = htmlToMarkdown(contentInput.innerHTML);
+    if (!title && !content) {
+      showToast('Nota vazia, nada para salvar como template', 'warning');
+      return;
+    }
+    const name = prompt('Nome do template:', title || 'Meu template');
+    if (!name) return;
+    try {
+      await api.saveCustomTemplate({
+        id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36),
+        name,
+        title: title || '',
+        content: content || '',
+        icon: null,
+      });
+      showToast('Template salvo', 'success');
+    } catch (err) {
+      showToast('Erro ao salvar template', 'error');
     }
   });
 
@@ -555,18 +729,70 @@ function openEditor(note) {
     if (isPreviewMode) {
       editorWrapper.style.display = 'none';
       previewDiv.style.display = 'block';
-      previewDiv.innerHTML = renderMarkdown(contentInput.value);
-      toggleBtn.innerHTML = '&#9998;'; // Edit icon
+      const md = htmlToMarkdown(contentInput.innerHTML);
+      previewDiv.innerHTML = renderMarkdown(md);
+      toggleBtn.innerHTML = '&#9998;';
       toggleBtn.title = 'Editar';
     } else {
       editorWrapper.style.display = 'flex';
       previewDiv.style.display = 'none';
-      toggleBtn.innerHTML = '&#128065;'; // Eye icon
+      toggleBtn.innerHTML = '&#128065;';
       toggleBtn.title = 'Visualizar';
     }
   });
 
+  // Version history
   if (note) {
+    document.getElementById('btn-versions').addEventListener('click', async () => {
+      const panel = document.getElementById('versions-panel');
+      const listDiv = document.getElementById('versions-list');
+      if (panel.style.display === 'none') {
+        panel.style.display = 'block';
+        listDiv.innerHTML = '<div class="empty">Carregando...</div>';
+        try {
+          const versions = await api.listNoteVersions(note.id);
+          if (versions.length === 0) {
+            listDiv.innerHTML = '<div class="empty">Nenhuma versao anterior</div>';
+          } else {
+            listDiv.innerHTML = versions.map(v => `
+              <div class="version-item" data-version-id="${v.id}">
+                <div class="version-info">
+                  <span class="version-date">${formatDateTime(v.created_at)}</span>
+                  <span class="version-title">${escapeHtml(v.title || 'Sem titulo')}</span>
+                </div>
+                <button class="btn btn-sm btn-secondary btn-restore-version" data-version-id="${v.id}">Restaurar</button>
+              </div>
+            `).join('');
+
+            listDiv.querySelectorAll('.btn-restore-version').forEach(btn => {
+              btn.addEventListener('click', async () => {
+                showConfirm('Restaurar esta versao? O estado atual sera salvo como versao.', async () => {
+                  try {
+                    const restored = await api.restoreNoteVersion(note.id, btn.dataset.versionId);
+                    currentNote = restored;
+                    titleInput.value = restored.title;
+                    contentInput.innerHTML = markdownToHtml(restored.content);
+                    panel.style.display = 'none';
+                    showToast('Versao restaurada', 'success');
+                  } catch (err) {
+                    showToast('Erro ao restaurar versao', 'error');
+                  }
+                });
+              });
+            });
+          }
+        } catch (err) {
+          listDiv.innerHTML = '<div class="empty">Erro ao carregar versoes</div>';
+        }
+      } else {
+        panel.style.display = 'none';
+      }
+    });
+
+    document.getElementById('btn-close-versions').addEventListener('click', () => {
+      document.getElementById('versions-panel').style.display = 'none';
+    });
+
     document.getElementById('btn-pin-note').addEventListener('click', async () => {
       await api.updateNote({ id: note.id, pinned: !note.pinned });
       showToast(note.pinned ? 'Desfixada' : 'Fixada', 'success');
@@ -586,10 +812,49 @@ function openEditor(note) {
   setupChipInput('category-chips', 'note-category-input', allCategories, false);
   setupChipInput('tag-chips', 'note-tags-input', allTags, true);
 
-  // Attach click handlers to pre-existing chip remove buttons
   document.querySelectorAll('#category-chips .remove, #tag-chips .remove').forEach(btn => {
     btn.addEventListener('click', () => btn.parentElement.remove());
   });
+}
+
+async function toggleVersions(note) {
+  if (!note?.id) { showToast('Salve a nota primeiro', 'info'); return; }
+  const panel = document.getElementById('versions-panel');
+  const list = document.getElementById('versions-list');
+  if (panel.style.display === 'none') {
+    panel.style.display = 'block';
+    list.innerHTML = '<div class="versions-loading">Carregando...</div>';
+    try {
+      const versions = await api.listNoteVersions(note.id);
+      if (versions.length === 0) {
+        list.innerHTML = '<div class="versions-empty">Nenhuma versao anterior</div>';
+      } else {
+        list.innerHTML = versions.map(v => `
+          <div class="version-item">
+            <div class="version-info">
+              <span class="version-date">${formatDateTime(v.created_at)}</span>
+              <span class="version-title">${escapeHtml(v.title)}</span>
+            </div>
+            <button class="btn btn-sm btn-secondary restore-version" data-version-id="${v.id}">Restaurar</button>
+          </div>
+        `).join('');
+
+        list.querySelectorAll('.restore-version').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            try {
+              const restored = await api.restoreNoteVersion(note.id, btn.dataset.versionId);
+              showToast('Versao restaurada', 'success');
+              openEditor(restored);
+            } catch { showToast('Erro ao restaurar', 'error'); }
+          });
+        });
+      }
+    } catch {
+      list.innerHTML = '<div class="versions-empty">Erro ao carregar</div>';
+    }
+  } else {
+    panel.style.display = 'none';
+  }
 }
 
 function setupChipInput(containerId, inputId, suggestions, allowMultiple) {
@@ -648,7 +913,8 @@ function getChips(containerId) {
 
 async function saveNote(silent = false) {
   const title = document.getElementById('note-title')?.value.trim();
-  const content = document.getElementById('note-content')?.value;
+  const contentEl = document.getElementById('note-content');
+  const content = contentEl ? htmlToMarkdown(contentEl.innerHTML) : '';
   const category = getChips('category-chips')[0] || null;
   const tags = getChips('tag-chips');
 

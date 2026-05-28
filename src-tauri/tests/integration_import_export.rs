@@ -20,6 +20,7 @@ fn make_note(id: &str, title: &str) -> Note {
         pinned: false,
         trashed: false,
         trashed_at: None,
+        position: None,
         schema_version: 1,
         created_at: "2026-05-28T10:00:00Z".to_string(),
         updated_at: "2026-05-28T10:00:00Z".to_string(),

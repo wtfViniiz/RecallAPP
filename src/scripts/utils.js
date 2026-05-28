@@ -170,6 +170,79 @@ export function renderMarkdown(text) {
   return html;
 }
 
+export function htmlToMarkdown(html) {
+  if (!html) return '';
+  let md = html;
+
+  // Preserve code blocks
+  const codeBlocks = [];
+  md = md.replace(/<pre><code>([\s\S]*?)<\/code><\/pre>/gi, (_, code) => {
+    const placeholder = `__CB_${codeBlocks.length}__`;
+    codeBlocks.push(code);
+    return placeholder;
+  });
+
+  // Inline code
+  const inlineCodes = [];
+  md = md.replace(/<code>([^<]+)<\/code>/gi, (_, code) => {
+    const placeholder = `__IC_${inlineCodes.length}__`;
+    inlineCodes.push(code);
+    return placeholder;
+  });
+
+  // Bold
+  md = md.replace(/<strong>([\s\S]*?)<\/strong>/gi, '**$1**');
+  md = md.replace(/<b>([\s\S]*?)<\/b>/gi, '**$1**');
+  // Italic
+  md = md.replace(/<em>([\s\S]*?)<\/em>/gi, '*$1*');
+  md = md.replace(/<i>([\s\S]*?)<\/i>/gi, '*$1*');
+  // Strikethrough
+  md = md.replace(/<del>([\s\S]*?)<\/del>/gi, '~~$1~~');
+  md = md.replace(/<s>([\s\S]*?)<\/s>/gi, '~~$1~~');
+  // Headings
+  md = md.replace(/<h1>([\s\S]*?)<\/h1>/gi, '# $1\n');
+  md = md.replace(/<h2>([\s\S]*?)<\/h2>/gi, '## $1\n');
+  md = md.replace(/<h3>([\s\S]*?)<\/h3>/gi, '### $1\n');
+  // Blockquote
+  md = md.replace(/<blockquote>([\s\S]*?)<\/blockquote>/gi, '> $1\n');
+  // List items
+  md = md.replace(/<li>([\s\S]*?)<\/li>/gi, '- $1\n');
+  // Links
+  md = md.replace(/<a[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi, '[$2]($1)');
+  // Images
+  md = md.replace(/<img[^>]*src="([^"]*)"[^>]*alt="([^"]*)"[^>]*>/gi, '![$2]($1)');
+  md = md.replace(/<img[^>]*src="([^"]*)"[^>]*>/gi, '![]($1)');
+  // Horizontal rule
+  md = md.replace(/<hr\s*\/?>/gi, '\n---\n');
+  // Line breaks and paragraphs
+  md = md.replace(/<br\s*\/?>/gi, '\n');
+  md = md.replace(/<p>([\s\S]*?)<\/p>/gi, '$1\n');
+  // Remove remaining HTML tags
+  md = md.replace(/<[^>]+>/g, '');
+  // Decode HTML entities
+  md = md.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+  // Clean up extra newlines
+  md = md.replace(/\n{3,}/g, '\n\n').trim();
+
+  // Restore code blocks and inline code
+  codeBlocks.forEach((block, i) => {
+    md = md.replace(`__CB_${i}__`, '```\n' + block + '\n```');
+  });
+  inlineCodes.forEach((code, i) => {
+    md = md.replace(`__IC_${i}__`, '`' + code + '`');
+  });
+
+  return md;
+}
+
+export function markdownToHtml(md) {
+  if (!md) return '';
+  return renderMarkdown(md)
+    .replace(/<br\s*\/?>/gi, '<br>')
+    .replace(/<h([1-3])>/gi, '<h$1>')
+    .replace(/<\/h[1-3]>/gi, '</h$1>');
+}
+
 // Predefined categories and tags
 export const DEFAULT_CATEGORIES = [
   'Pessoal',

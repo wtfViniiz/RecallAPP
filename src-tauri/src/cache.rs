@@ -77,7 +77,12 @@ impl NoteCache {
             filtered.sort_by(|a, b| {
                 b.pinned
                     .cmp(&a.pinned)
-                    .then_with(|| b.updated_at.cmp(&a.updated_at))
+                    .then_with(|| match (a.position, b.position) {
+                        (Some(pa), Some(pb)) => pa.cmp(&pb),
+                        (Some(_), None) => std::cmp::Ordering::Less,
+                        (None, Some(_)) => std::cmp::Ordering::Greater,
+                        (None, None) => b.updated_at.cmp(&a.updated_at),
+                    })
             });
 
             filtered

@@ -16,6 +16,8 @@ pub struct Note {
     pub trashed: bool,
     #[serde(default)]
     pub trashed_at: Option<String>,
+    #[serde(default)]
+    pub position: Option<i32>,
     #[serde(default = "default_schema_version")]
     pub schema_version: u32,
     pub created_at: String,
@@ -83,6 +85,26 @@ pub struct PaginatedResult<T: Serialize> {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NoteVersion {
+    pub id: String,
+    pub note_id: String,
+    pub title: String,
+    pub content: String,
+    pub category: Option<String>,
+    pub tags: Vec<String>,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CustomTemplate {
+    pub id: String,
+    pub name: String,
+    pub title: String,
+    pub content: String,
+    pub icon: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateNote {
     pub title: String,
     pub content: Option<String>,
@@ -98,6 +120,7 @@ pub struct UpdateNote {
     pub category: Option<String>,
     pub tags: Option<Vec<String>>,
     pub pinned: Option<bool>,
+    pub position: Option<i32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -160,6 +183,7 @@ mod tests {
             pinned: true,
             trashed: false,
             trashed_at: None,
+            position: None,
             schema_version: 1,
             created_at: "2026-05-28T10:00:00Z".to_string(),
             updated_at: "2026-05-28T12:00:00Z".to_string(),
@@ -190,6 +214,7 @@ mod tests {
             pinned: false,
             trashed: true,
             trashed_at: Some("2026-05-28T15:00:00Z".to_string()),
+            position: None,
             schema_version: 1,
             created_at: "2026-05-28T10:00:00Z".to_string(),
             updated_at: "2026-05-28T15:00:00Z".to_string(),
@@ -324,6 +349,7 @@ mod tests {
             category: None,
             tags: None,
             pinned: None,
+            position: None,
         };
 
         assert_eq!(input.id, "note-1");

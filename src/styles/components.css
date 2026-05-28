@@ -148,6 +148,35 @@
   margin-bottom: 4px;
 }
 
+.form-input {
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+textarea.form-input {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.form-actions {
+  margin-top: 16px;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .form-row {
   display: flex;
   gap: 12px;
@@ -732,6 +761,17 @@ mark {
   background: var(--accent);
 }
 
+/* Drag & Drop */
+.card.dragging {
+  opacity: 0.4;
+  transform: scale(0.98);
+}
+
+.card.drag-over {
+  border-top: 2px solid var(--accent);
+  margin-top: -2px;
+}
+
 /* Markdown Toolbar */
 .markdown-toolbar {
   display: flex;
@@ -785,4 +825,173 @@ mark {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
+}
+
+/* WYSIWYG Editor */
+.wysiwyg-editor {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 8px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  overflow-y: auto;
+  min-height: 200px;
+  outline: none;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.wysiwyg-editor:focus {
+  outline: none;
+}
+
+.wysiwyg-editor:empty::before {
+  content: attr(data-placeholder);
+  color: var(--text-secondary);
+  pointer-events: none;
+}
+
+.wysiwyg-editor:empty::before {
+  content: attr(data-placeholder);
+  color: var(--text-secondary);
+  pointer-events: none;
+}
+
+.wysiwyg-editor strong, .wysiwyg-editor b {
+  font-weight: 700;
+}
+
+.wysiwyg-editor em, .wysiwyg-editor i {
+  font-style: italic;
+}
+
+.wysiwyg-editor del, .wysiwyg-editor s {
+  text-decoration: line-through;
+  color: var(--text-secondary);
+}
+
+.wysiwyg-editor code {
+  background: var(--bg-secondary);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 13px;
+}
+
+.wysiwyg-editor pre {
+  background: var(--bg-secondary);
+  padding: 12px;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
+.wysiwyg-editor pre code {
+  background: none;
+  padding: 0;
+}
+
+.wysiwyg-editor blockquote {
+  border-left: 3px solid var(--accent);
+  padding-left: 12px;
+  color: var(--text-secondary);
+  margin: 8px 0;
+}
+
+.wysiwyg-editor h1, .wysiwyg-editor h2, .wysiwyg-editor h3 {
+  margin: 12px 0 6px;
+  color: var(--text-primary);
+}
+
+.wysiwyg-editor h1 { font-size: 1.5em; }
+.wysiwyg-editor h2 { font-size: 1.3em; }
+.wysiwyg-editor h3 { font-size: 1.1em; }
+
+.wysiwyg-editor ul, .wysiwyg-editor ol {
+  margin: 8px 0;
+  padding-left: 24px;
+}
+
+.wysiwyg-editor li {
+  margin-bottom: 4px;
+}
+
+.wysiwyg-editor a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.wysiwyg-editor a:hover {
+  text-decoration: underline;
+}
+
+.wysiwyg-editor img {
+  max-width: 100%;
+  border-radius: 6px;
+  margin: 8px 0;
+}
+
+.wysiwyg-editor hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 12px 0;
+}
+
+/* Versions Panel */
+.versions-panel {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-top: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+  background: var(--bg-card);
+}
+
+.versions-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.versions-list {
+  padding: 4px;
+}
+
+.version-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+.version-item:hover {
+  background: var(--bg-secondary);
+}
+
+.version-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.version-date {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.version-title {
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
