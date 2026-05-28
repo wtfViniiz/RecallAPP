@@ -88,6 +88,35 @@ document.addEventListener('keydown', async (e) => {
   }
 });
 
+// Global keyboard shortcuts
+document.addEventListener('keydown', async (e) => {
+  // Ctrl+N: New note
+  if (e.ctrlKey && !e.shiftKey && e.key === 'n') {
+    e.preventDefault();
+    document.querySelector('[data-tab="notes"]').click();
+    setTimeout(() => document.getElementById('btn-new-note')?.click(), 100);
+    return;
+  }
+
+  // Ctrl+P: Focus search
+  if (e.ctrlKey && e.key === 'p') {
+    e.preventDefault();
+    document.querySelector('[data-tab="notes"]').click();
+    setTimeout(() => {
+      const search = document.getElementById('note-search');
+      if (search) { search.focus(); search.select(); }
+    }, 100);
+    return;
+  }
+
+  // Ctrl+,: Settings
+  if (e.ctrlKey && e.key === ',') {
+    e.preventDefault();
+    document.querySelector('[data-tab="settings"]').click();
+    return;
+  }
+});
+
 // Click outside to hide
 document.addEventListener('mousedown', async (e) => {
   const appEl = document.getElementById('app');
