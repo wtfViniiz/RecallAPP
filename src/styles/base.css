@@ -48,6 +48,15 @@ body {
 
 #header-bar .pin-btn.active {
   color: var(--accent);
+  background: var(--bg-primary);
+}
+
+#header-bar .pin-btn.active .pin-icon {
+  filter: none;
+}
+
+#header-bar .pin-btn:not(.active) .pin-icon {
+  opacity: 0.5;
 }
 
 #tabs {

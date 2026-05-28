@@ -151,7 +151,12 @@ pub fn set_always_on_top(app: AppHandle, pinned: bool) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn save_image(app: AppHandle, data: Vec<u8>, note_id: String) -> Result<String, String> {
+pub fn save_image(app: AppHandle, base64_data: String, note_id: String) -> Result<String, String> {
+    use base64::Engine;
+    let data = base64::engine::general_purpose::STANDARD
+        .decode(&base64_data)
+        .map_err(|e| e.to_string())?;
+
     let dir = app
         .path()
         .app_data_dir()

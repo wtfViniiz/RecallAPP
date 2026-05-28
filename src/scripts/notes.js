@@ -26,7 +26,6 @@ async function renderNotesList() {
     <div id="notes-list"></div>
   `;
 
-  // Load categories and tags from API
   try {
     const [apiCats, apiTags] = await Promise.all([api.getCategories(), api.getTags()]);
     apiCats.forEach(c => { if (!allCategories.includes(c)) allCategories.push(c); });
@@ -48,7 +47,6 @@ async function renderNotesList() {
   document.getElementById('filter-tag').addEventListener('change', loadNotes);
   document.getElementById('btn-new-note').addEventListener('click', () => openEditor(null));
 
-  // Ctrl+N shortcut
   document.addEventListener('keydown', (e) => {
     if (e.ctrlKey && e.key === 'n' && currentView === 'list') {
       e.preventDefault();
@@ -79,7 +77,10 @@ async function loadNotes() {
 
   list.innerHTML = notes.map(note => `
     <div class="card ${note.pinned ? 'pinned' : ''}" data-id="${note.id}">
-      <div class="card-title">${escapeHtml(note.title || 'Sem titulo')}</div>
+      <div class="card-header">
+        <div class="card-title">${escapeHtml(note.title || 'Sem titulo')}</div>
+        <button class="btn-icon delete-note-btn" data-id="${note.id}" title="Excluir">&#128465;</button>
+      </div>
       <div class="card-meta">
         ${note.category ? `<span>${escapeHtml(note.category)}</span>` : ''}
         ${note.tags.map(t => `<span class="tag">#${escapeHtml(t)}</span>`).join('')}
@@ -88,10 +89,23 @@ async function loadNotes() {
     </div>
   `).join('');
 
+  // Click to open note
   list.querySelectorAll('.card').forEach(card => {
-    card.addEventListener('click', () => {
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('.delete-note-btn')) return;
       const note = notes.find(n => n.id === card.dataset.id);
       openEditor(note);
+    });
+  });
+
+  // Delete buttons
+  list.querySelectorAll('.delete-note-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const id = btn.dataset.id;
+      await api.deleteNote(id);
+      showToast('Nota excluida', 'success');
+      await loadNotes();
     });
   });
 }
@@ -109,13 +123,13 @@ function openEditor(note) {
       <button class="btn btn-secondary" id="btn-back">Voltar</button>
       <div class="header-actions">
         <button class="btn btn-secondary" id="btn-copy-all" title="Copiar tudo">&#128203;</button>
-        ${note ? `<button class="btn btn-secondary" id="btn-pin-note" title="Fixar">${note.pinned ? '&#9733;' : '&#9734;'}</button>` : ''}
+        ${note ? `<button class="btn btn-secondary" id="btn-pin-note" title="Fixar na lista">${note.pinned ? '&#9733;' : '&#9734;'}</button>` : ''}
         ${note ? `<button class="btn btn-danger" id="btn-delete-note">Excluir</button>` : ''}
       </div>
     </div>
-    <div class="quick-note">
-      <input type="text" class="note-title" id="note-title" value="${note ? escapeHtml(note.title) : ''}" placeholder="Titulo..." autofocus>
-      <div class="form-group" style="margin-top: 8px;">
+    <input type="text" class="note-title" id="note-title" value="${note ? escapeHtml(note.title) : ''}" placeholder="Titulo..." autofocus>
+    <div class="form-row">
+      <div class="form-group" style="flex:1">
         <label>Categoria</label>
         <div class="chip-input" id="category-chips">
           ${selectedCategory ? `<span class="chip" data-value="${escapeHtml(selectedCategory)}">${escapeHtml(selectedCategory)}<span class="remove">&times;</span></span>` : ''}
@@ -125,7 +139,7 @@ function openEditor(note) {
           </datalist>
         </div>
       </div>
-      <div class="form-group">
+      <div class="form-group" style="flex:1">
         <label>Tags</label>
         <div class="chip-input" id="tag-chips">
           ${selectedTags.map(t => `<span class="chip" data-value="${escapeHtml(t)}">#${escapeHtml(t)}<span class="remove">&times;</span></span>`).join('')}
@@ -135,9 +149,11 @@ function openEditor(note) {
           </datalist>
         </div>
       </div>
+    </div>
+    <div class="editor-wrapper">
+      <div class="line-numbers" id="line-numbers"></div>
       <div class="editor-container">
         <textarea id="note-content" placeholder="Comece a escrever... (Ctrl+V para colar imagens)">${note ? escapeHtml(note.content) : ''}</textarea>
-        <div class="line-actions" id="line-actions"></div>
       </div>
     </div>
     ${note ? `
@@ -146,19 +162,26 @@ function openEditor(note) {
     ` : ''}
   `;
 
-  // Focus on title or content
   const titleInput = document.getElementById('note-title');
   const contentInput = document.getElementById('note-content');
+  const lineNumbers = document.getElementById('line-numbers');
 
-  if (!note) {
-    titleInput.focus();
-  } else if (!note.title) {
-    titleInput.focus();
-  } else {
-    contentInput.focus();
+  // Update line numbers
+  function updateLineNumbers() {
+    const lines = contentInput.value.split('\n');
+    lineNumbers.innerHTML = lines.map((_, i) => {
+      const isEven = i % 2 === 0;
+      return `<div class="line-number ${isEven ? 'even' : 'odd'}" data-line="${i}">${i + 1}</div>`;
+    }).join('');
   }
 
-  // Auto-save on change (debounced)
+  updateLineNumbers();
+  contentInput.addEventListener('input', updateLineNumbers);
+  contentInput.addEventListener('scroll', () => {
+    lineNumbers.scrollTop = contentInput.scrollTop;
+  });
+
+  // Auto-save
   const autoSave = () => {
     clearTimeout(saveTimeout);
     saveTimeout = setTimeout(() => saveNote(true), 1000);
@@ -167,7 +190,7 @@ function openEditor(note) {
   titleInput.addEventListener('input', autoSave);
   contentInput.addEventListener('input', autoSave);
 
-  // Image paste support
+  // Image paste - base64 approach
   contentInput.addEventListener('paste', async (e) => {
     const items = e.clipboardData?.items;
     if (!items) return;
@@ -180,39 +203,33 @@ function openEditor(note) {
 
         const reader = new FileReader();
         reader.onload = async () => {
-          const data = new Uint8Array(reader.result);
+          const base64 = reader.result.split(',')[1];
           try {
             const noteId = currentNote?.id || 'new';
-            const path = await api.saveImage(Array.from(data), noteId);
-            // Insert image reference at cursor position
+            const path = await api.saveImage(base64, noteId);
             const cursor = contentInput.selectionStart;
             const text = contentInput.value;
             const imgTag = `\n![Imagem](${path})\n`;
             contentInput.value = text.slice(0, cursor) + imgTag + text.slice(cursor);
+            updateLineNumbers();
             showToast('Imagem colada', 'success');
             autoSave();
           } catch (err) {
-            showToast('Erro ao colar imagem: ' + err, 'error');
+            showToast('Erro ao colar imagem', 'error');
           }
         };
-        reader.readAsArrayBuffer(file);
+        reader.readAsDataURL(file);
         return;
       }
     }
   });
 
-  // Line hover actions (copy line)
-  contentInput.addEventListener('mousemove', (e) => {
-    const rect = contentInput.getBoundingClientRect();
-    const lineHeight = 22; // Approximate line height
-    const lineIndex = Math.floor((e.clientY - rect.top + contentInput.scrollTop) / lineHeight);
-    showLineActions(contentInput, lineIndex, e.clientY - rect.top);
-  });
-
-  contentInput.addEventListener('mouseleave', () => {
-    const actions = document.getElementById('line-actions');
-    if (actions) actions.innerHTML = '';
-  });
+  // Focus
+  if (!note || !note.title) {
+    titleInput.focus();
+  } else {
+    contentInput.focus();
+  }
 
   // Back button
   document.getElementById('btn-back').addEventListener('click', () => {
@@ -223,24 +240,24 @@ function openEditor(note) {
     });
   });
 
-  // Copy all button
+  // Copy all
   document.getElementById('btn-copy-all').addEventListener('click', async () => {
     const content = contentInput.value;
     const title = titleInput.value;
     const fullText = title ? `${title}\n\n${content}` : content;
     try {
       await navigator.clipboard.writeText(fullText);
-      showToast('Nota copiada para a area de transferencia', 'success');
+      showToast('Nota copiada', 'success');
     } catch (e) {
       showToast('Erro ao copiar', 'error');
     }
   });
 
-  // Pin button
+  // Pin in list
   if (note) {
     document.getElementById('btn-pin-note').addEventListener('click', async () => {
       await api.updateNote({ id: note.id, pinned: !note.pinned });
-      showToast(note.pinned ? 'Nota desfixada' : 'Nota fixada', 'success');
+      showToast(note.pinned ? 'Desfixada' : 'Fixada', 'success');
       openEditor({ ...note, pinned: !note.pinned });
     });
 
@@ -252,41 +269,13 @@ function openEditor(note) {
     });
   }
 
-  // Category chip input
   setupChipInput('category-chips', 'note-category-input', allCategories, false);
-
-  // Tag chip input
   setupChipInput('tag-chips', 'note-tags-input', allTags, true);
 
-  // Ctrl+S to save
   document.addEventListener('keydown', (e) => {
     if (e.ctrlKey && e.key === 's' && currentView === 'editor') {
       e.preventDefault();
       saveNote(false);
-    }
-  });
-}
-
-function showLineActions(textarea, lineIndex, y) {
-  const actions = document.getElementById('line-actions');
-  if (!actions) return;
-
-  const lines = textarea.value.split('\n');
-  if (lineIndex >= lines.length || !lines[lineIndex].trim()) {
-    actions.innerHTML = '';
-    return;
-  }
-
-  actions.innerHTML = `<button class="line-copy-btn" title="Copiar linha">&#128203;</button>`;
-  actions.style.top = `${y - 10}px`;
-
-  const copyBtn = actions.querySelector('.line-copy-btn');
-  copyBtn.addEventListener('click', async () => {
-    try {
-      await navigator.clipboard.writeText(lines[lineIndex]);
-      showToast('Linha copiada', 'success');
-    } catch (e) {
-      showToast('Erro ao copiar', 'error');
     }
   });
 }
@@ -322,7 +311,6 @@ function setupChipInput(containerId, inputId, suggestions, allowMultiple) {
 }
 
 function addChip(container, input, value, allowMultiple) {
-  // Check if already exists
   const existing = container.querySelectorAll('.chip');
   if (!allowMultiple && existing.length > 0) {
     existing[0].remove();
@@ -377,7 +365,7 @@ async function saveNote(silent = false) {
       showToast('Nota salva', 'success');
     }
   } catch (e) {
-    showToast('Erro ao salvar: ' + e, 'error');
+    showToast('Erro ao salvar', 'error');
   }
 }
 

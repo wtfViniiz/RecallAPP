@@ -13,9 +13,16 @@
   border-color: var(--accent);
 }
 
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
 .card-title {
   font-weight: 600;
   margin-bottom: 4px;
+  flex: 1;
 }
 
 .card-meta {
@@ -25,6 +32,17 @@
 
 .card-meta span {
   margin-right: 8px;
+}
+
+.delete-note-btn {
+  opacity: 0;
+  transition: opacity 0.15s;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.card:hover .delete-note-btn {
+  opacity: 1;
 }
 
 /* Buttons */
@@ -76,6 +94,7 @@
   padding: 6px;
   border-radius: 4px;
   cursor: pointer;
+  font-size: 14px;
 }
 
 .btn-icon:hover {
@@ -103,26 +122,14 @@
   border-radius: 12px;
   font-size: 12px;
   margin: 2px;
-  cursor: pointer;
 }
 
 .tag:hover {
-  border-color: var(--accent);
   color: var(--accent);
 }
 
-.tag.active {
-  background: var(--accent);
-  color: #fff;
-}
-
-.tag .remove {
-  cursor: pointer;
-  margin-left: 4px;
-}
-
 /* Pinned indicator */
-.pinned::before {
+.pinned .card-title::before {
   content: '\2605';
   color: var(--warning);
   margin-right: 6px;
@@ -138,6 +145,12 @@
   font-size: 12px;
   color: var(--text-secondary);
   margin-bottom: 4px;
+}
+
+.form-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
 }
 
 /* Radio group */
@@ -252,7 +265,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .header-actions {
@@ -384,28 +397,8 @@
   padding: 2px 4px;
 }
 
-/* Quick note area */
-.quick-note {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
-.quick-note textarea {
-  flex: 1;
-  border: none;
-  background: transparent;
-  resize: none;
-  padding: 0;
-  font-size: 14px;
-  line-height: 1.6;
-}
-
-.quick-note textarea:focus {
-  outline: none;
-}
-
-.quick-note .note-title {
+/* Note title in editor */
+.note-title {
   font-size: 18px;
   font-weight: 600;
   border: none;
@@ -413,18 +406,55 @@
   padding: 0 0 8px 0;
   margin-bottom: 8px;
   border-bottom: 1px solid var(--border);
+  width: 100%;
+  color: var(--text-primary);
 }
 
-.quick-note .note-title:focus {
+.note-title:focus {
   outline: none;
   border-bottom-color: var(--accent);
 }
 
-/* Editor container */
+/* Editor with line numbers (notebook style) */
+.editor-wrapper {
+  display: flex;
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  min-height: 300px;
+}
+
+.line-numbers {
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border);
+  padding: 8px 0;
+  min-width: 40px;
+  text-align: right;
+  overflow: hidden;
+  user-select: none;
+}
+
+.line-number {
+  padding: 0 8px;
+  font-size: 12px;
+  line-height: 1.6;
+  font-family: 'Consolas', 'Courier New', monospace;
+  color: var(--text-secondary);
+}
+
+.line-number.even {
+  background: transparent;
+}
+
+.line-number.odd {
+  background: var(--line-stripe);
+}
+
 .editor-container {
-  position: relative;
   flex: 1;
   display: flex;
+  position: relative;
 }
 
 .editor-container textarea {
@@ -432,35 +462,24 @@
   border: none;
   background: transparent;
   resize: none;
-  padding: 0;
+  padding: 8px;
   font-size: 14px;
   line-height: 1.6;
   font-family: 'Consolas', 'Courier New', monospace;
+  color: var(--text-primary);
 }
 
 .editor-container textarea:focus {
   outline: none;
 }
 
-/* Line actions (copy button on hover) */
-.line-actions {
-  position: absolute;
-  right: 0;
-  pointer-events: auto;
-}
-
-.line-copy-btn {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 2px 6px;
-  cursor: pointer;
-  font-size: 12px;
-  color: var(--text-secondary);
-  transition: all 0.15s;
-}
-
-.line-copy-btn:hover {
-  color: var(--accent);
-  border-color: var(--accent);
+/* Notebook stripe for textarea */
+.editor-container textarea {
+  background-image: repeating-linear-gradient(
+    transparent,
+    transparent 22px,
+    var(--line-stripe) 22px,
+    var(--line-stripe) 23px
+  );
+  background-attachment: local;
 }

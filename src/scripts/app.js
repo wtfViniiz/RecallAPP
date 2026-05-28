@@ -11,23 +11,36 @@ async function applyTheme() {
   try {
     const config = await api.getConfig();
     document.body.className = config.theme;
-  } catch (e) {
-    console.error('Failed to load config:', e);
-  }
+  } catch (e) {}
 }
 
 // Pin window button
 const pinBtn = document.getElementById('pin-window');
+const pinIcon = pinBtn.querySelector('.pin-icon');
+
+function updatePinVisual() {
+  if (isPinned) {
+    pinBtn.classList.add('active');
+    pinIcon.innerHTML = '&#128204;'; // Filled pin
+    pinBtn.style.color = 'var(--accent)';
+    pinBtn.style.background = 'var(--bg-primary)';
+  } else {
+    pinBtn.classList.remove('active');
+    pinIcon.innerHTML = '&#128204;'; // Outline pin
+    pinBtn.style.color = 'var(--text-secondary)';
+    pinBtn.style.background = 'none';
+  }
+}
+
 pinBtn.addEventListener('click', async () => {
   isPinned = !isPinned;
-  pinBtn.classList.toggle('active', isPinned);
-  pinBtn.innerHTML = isPinned ? '&#128204;' : '&#128204;';
+  updatePinVisual();
   try {
     await api.setAlwaysOnTop(isPinned);
-  } catch (e) {
-    console.error('Failed to set always on top:', e);
-  }
+  } catch (e) {}
 });
+
+updatePinVisual();
 
 tabs.forEach(tab => {
   tab.addEventListener('click', () => {
@@ -48,9 +61,7 @@ document.addEventListener('keydown', async (e) => {
   if (e.key === 'Escape' && !isPinned) {
     try {
       await window.__TAURI_INTERNALS__.invoke('plugin:window|set_visible', { visible: false });
-    } catch (err) {
-      // Ignore
-    }
+    } catch (err) {}
   }
 });
 
@@ -60,9 +71,7 @@ document.addEventListener('mousedown', async (e) => {
   if (!appEl.contains(e.target) && !isPinned) {
     try {
       await window.__TAURI_INTERNALS__.invoke('plugin:window|set_visible', { visible: false });
-    } catch (err) {
-      // Ignore
-    }
+    } catch (err) {}
   }
 });
 
