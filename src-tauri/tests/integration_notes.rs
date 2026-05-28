@@ -1,6 +1,5 @@
 use recall::models::*;
 use recall::storage;
-use std::fs;
 use std::path::PathBuf;
 use tempfile::TempDir;
 

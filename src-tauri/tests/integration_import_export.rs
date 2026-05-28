@@ -44,7 +44,7 @@ fn make_reminder(id: &str, title: &str) -> Reminder {
 #[test]
 fn test_export_and_import_roundtrip() {
     // Create data in first instance
-    let (tmp1, data_dir1) = setup();
+    let (_tmp1, data_dir1) = setup();
     let note = make_note("n1", "Exported Note");
     let reminder = make_reminder("r1", "Exported Reminder");
     storage::save_note_at(&data_dir1, &note).unwrap();
