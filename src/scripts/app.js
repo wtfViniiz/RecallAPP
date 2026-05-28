@@ -2,6 +2,7 @@ import { initNotes } from './notes.js';
 import { initReminders } from './reminders.js';
 import { initSettings } from './settings.js';
 import { api } from './api.js';
+import { showToast } from './utils.js';
 
 let win = null;
 try {
@@ -86,7 +87,7 @@ window.addEventListener('tray-action', (e) => {
   const action = e.detail;
   if (action === 'new-note') {
     document.querySelector('[data-tab="notes"]').click();
-    setTimeout(() => showTemplateSelector(), 100);
+    setTimeout(() => document.getElementById('btn-new-note')?.click(), 100);
   } else if (action === 'new-reminder') {
     document.querySelector('[data-tab="reminders"]').click();
     setTimeout(() => document.getElementById('btn-new-reminder')?.click(), 100);

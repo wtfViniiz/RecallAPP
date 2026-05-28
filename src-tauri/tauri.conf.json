@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "identifier": "com.recall.app",
   "build": {
-    "frontendDist": "../src"
+    "frontendDist": "../src",
+    "withGlobalTauri": true
   },
   "app": {
     "windows": [
