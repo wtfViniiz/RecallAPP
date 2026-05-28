@@ -1,21 +1,9 @@
-import { initNotes } from './notes.js';
-import { initReminders } from './reminders.js';
-import { initSettings } from './settings.js';
 import { api } from './api.js';
 import { showToast } from './utils.js';
 
 const tabs = document.querySelectorAll('.tab');
 const views = document.querySelectorAll('.view');
 let isPinned = false;
-
-async function applyTheme() {
-  try {
-    const config = await api.getConfig();
-    document.body.className = config.theme;
-  } catch (e) {
-    console.error('Theme error:', e);
-  }
-}
 
 // Pin window button
 const pinBtn = document.getElementById('pin-window');
@@ -38,28 +26,46 @@ pinBtn.addEventListener('click', async () => {
   updatePinVisual();
   try {
     await api.setAlwaysOnTop(isPinned);
-  } catch (e) {
-    console.error('Pin error:', e);
-  }
+  } catch (e) {}
 });
 
 updatePinVisual();
 
+// Theme
+async function applyTheme() {
+  try {
+    const config = await api.getConfig();
+    document.body.className = config.theme;
+  } catch (e) {
+    console.error('Theme error:', e);
+  }
+}
+
+// Tab switching
 tabs.forEach(tab => {
-  tab.addEventListener('click', () => {
+  tab.addEventListener('click', async () => {
     const target = tab.dataset.tab;
     tabs.forEach(t => t.classList.remove('active'));
     views.forEach(v => v.classList.remove('active'));
     tab.classList.add('active');
     document.getElementById(`view-${target}`).classList.add('active');
 
-    if (target === 'notes') initNotes();
-    if (target === 'reminders') initReminders();
-    if (target === 'settings') initSettings();
+    if (target === 'notes') {
+      const { initNotes } = await import('./notes.js');
+      initNotes();
+    }
+    if (target === 'reminders') {
+      const { initReminders } = await import('./reminders.js');
+      initReminders();
+    }
+    if (target === 'settings') {
+      const { initSettings } = await import('./settings.js');
+      initSettings();
+    }
   });
 });
 
-// Escape to hide window
+// Escape to hide
 document.addEventListener('keydown', async (e) => {
   if (e.key === 'Escape' && !isPinned) {
     try {
@@ -78,72 +84,53 @@ document.addEventListener('mousedown', async (e) => {
   }
 });
 
-applyTheme();
-initNotes();
-
-// Tray action handler
+// Tray actions
 window.addEventListener('tray-action', (e) => {
   const action = e.detail;
   if (action === 'new-note') {
     document.querySelector('[data-tab="notes"]').click();
-    setTimeout(() => document.getElementById('btn-new-note')?.click(), 100);
+    setTimeout(() => document.getElementById('btn-new-note')?.click(), 200);
   } else if (action === 'new-reminder') {
     document.querySelector('[data-tab="reminders"]').click();
-    setTimeout(() => document.getElementById('btn-new-reminder')?.click(), 100);
+    setTimeout(() => document.getElementById('btn-new-reminder')?.click(), 200);
   } else if (action === 'settings') {
     document.querySelector('[data-tab="settings"]').click();
   }
 });
 
-// Quick capture (Ctrl+Shift+N)
+// Quick capture
 document.addEventListener('keydown', async (e) => {
   if (e.ctrlKey && e.shiftKey && e.key === 'N') {
     e.preventDefault();
-    showQuickCapture();
+    tabs.forEach(t => t.classList.remove('active'));
+    views.forEach(v => v.classList.remove('active'));
+    document.querySelector('[data-tab="notes"]').classList.add('active');
+    document.getElementById('view-notes').classList.add('active');
+    document.getElementById('view-notes').innerHTML = `
+      <div class="quick-capture">
+        <textarea id="quick-capture-input" placeholder="Anotacao rapida..." autofocus></textarea>
+        <div class="quick-capture-actions">
+          <button class="btn btn-secondary" id="quick-capture-cancel">Cancelar</button>
+          <button class="btn btn-primary" id="quick-capture-save">Salvar</button>
+        </div>
+      </div>
+    `;
+    const input = document.getElementById('quick-capture-input');
+    input.focus();
+    document.getElementById('quick-capture-cancel').addEventListener('click', () => {
+      document.querySelector('[data-tab="notes"]').click();
+    });
+    document.getElementById('quick-capture-save').addEventListener('click', async () => {
+      const content = input.value.trim();
+      if (content) {
+        await api.createNote({ title: content.split('\\n')[0].slice(0, 50), content, tags: ['rascunho'] });
+        showToast('Nota rapida salva', 'success');
+      }
+      document.querySelector('[data-tab="notes"]').click();
+    });
   }
 });
 
-function showQuickCapture() {
-  tabs.forEach(t => t.classList.remove('active'));
-  views.forEach(v => v.classList.remove('active'));
-  document.querySelector('[data-tab="notes"]').classList.add('active');
-  document.getElementById('view-notes').classList.add('active');
-
-  const container = document.getElementById('view-notes');
-  container.innerHTML = `
-    <div class="quick-capture">
-      <textarea id="quick-capture-input" placeholder="Anotacao rapida... (Enter para salvar, Esc para cancelar)" autofocus></textarea>
-      <div class="quick-capture-actions">
-        <button class="btn btn-secondary" id="quick-capture-cancel">Cancelar</button>
-        <button class="btn btn-primary" id="quick-capture-save">Salvar</button>
-      </div>
-    </div>
-  `;
-
-  const input = document.getElementById('quick-capture-input');
-  input.focus();
-
-  document.getElementById('quick-capture-cancel').addEventListener('click', () => {
-    initNotes();
-  });
-
-  document.getElementById('quick-capture-save').addEventListener('click', async () => {
-    const content = input.value.trim();
-    if (content) {
-      const title = content.split('\n')[0].slice(0, 50);
-      await api.createNote({ title, content, tags: ['rascunho'] });
-      showToast('Nota rapida salva', 'success');
-    }
-    initNotes();
-  });
-
-  input.addEventListener('keydown', async (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      document.getElementById('quick-capture-save').click();
-    }
-    if (e.key === 'Escape') {
-      initNotes();
-    }
-  });
-}
+applyTheme();
+// Init notes tab on load
+import('./notes.js').then(({ initNotes }) => initNotes());
