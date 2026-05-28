@@ -1,5 +1,5 @@
 import { api } from './api.js';
-import { formatDateTime, formatRelativeDate, escapeHtml } from './utils.js';
+import { formatDateTime, formatRelativeDate, escapeHtml, showToast } from './utils.js';
 
 export async function initReminders() {
   await renderRemindersList();
@@ -62,6 +62,7 @@ async function loadReminders() {
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
       await api.dismissReminder(btn.dataset.dismiss);
+      showToast('Lembrete dispensado', 'success');
       await loadReminders();
     });
   });
@@ -80,7 +81,7 @@ function openReminderForm(reminder) {
     </div>
     <div class="form-group">
       <label>Titulo</label>
-      <input type="text" id="reminder-title" value="${reminder ? escapeHtml(reminder.title) : ''}" placeholder="Titulo do lembrete">
+      <input type="text" id="reminder-title" value="${reminder ? escapeHtml(reminder.title) : ''}" placeholder="Titulo do lembrete" autofocus>
     </div>
     <div class="form-group">
       <label>Descricao</label>
@@ -145,10 +146,9 @@ function openReminderForm(reminder) {
 
   if (reminder) {
     document.getElementById('btn-delete-reminder').addEventListener('click', async () => {
-      if (confirm('Excluir este lembrete?')) {
-        await api.deleteReminder(reminder.id);
-        renderRemindersList();
-      }
+      await api.deleteReminder(reminder.id);
+      showToast('Lembrete excluido', 'success');
+      renderRemindersList();
     });
   }
 
@@ -158,7 +158,7 @@ function openReminderForm(reminder) {
 async function saveReminder() {
   const title = document.getElementById('reminder-title').value.trim();
   if (!title) {
-    alert('Titulo e obrigatorio');
+    showToast('Titulo e obrigatorio', 'warning');
     return;
   }
 
@@ -169,19 +169,20 @@ async function saveReminder() {
 
   if (type === 'datetime') {
     const dt = document.getElementById('reminder-datetime').value;
-    if (!dt) { alert('Selecione data e hora'); return; }
+    if (!dt) { showToast('Selecione data e hora', 'warning'); return; }
     input.trigger_at = new Date(dt).toISOString();
   } else if (type === 'recurrence') {
     const dt = document.getElementById('reminder-datetime').value;
-    if (!dt) { alert('Selecione data e hora'); return; }
+    if (!dt) { showToast('Selecione data e hora', 'warning'); return; }
     input.trigger_at = new Date(dt).toISOString();
     input.repeat = document.getElementById('reminder-repeat').value;
   } else {
     const minutes = parseInt(document.getElementById('reminder-minutes').value);
-    if (!minutes || minutes < 1) { alert('Informe os minutos'); return; }
+    if (!minutes || minutes < 1) { showToast('Informe os minutos', 'warning'); return; }
     input.relative_minutes = minutes;
   }
 
   await api.createReminder(input);
+  showToast('Lembrete criado', 'success');
   renderRemindersList();
 }

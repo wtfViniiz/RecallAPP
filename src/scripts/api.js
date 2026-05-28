@@ -1,4 +1,7 @@
-const { invoke } = window.__TAURI__.core;
+// Tauri v2 IPC - __TAURI_INTERNALS__ is always available in the webview
+async function invoke(cmd, args = {}) {
+  return window.__TAURI_INTERNALS__.invoke(cmd, args);
+}
 
 export const api = {
   // Notes

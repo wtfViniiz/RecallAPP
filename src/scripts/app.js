@@ -3,14 +3,16 @@ import { initReminders } from './reminders.js';
 import { initSettings } from './settings.js';
 import { api } from './api.js';
 
-const { getCurrentWindow } = window.__TAURI__.window;
-
 const tabs = document.querySelectorAll('.tab');
 const views = document.querySelectorAll('.view');
 
 async function applyTheme() {
-  const config = await api.getConfig();
-  document.body.className = config.theme;
+  try {
+    const config = await api.getConfig();
+    document.body.className = config.theme;
+  } catch (e) {
+    console.error('Failed to load config:', e);
+  }
 }
 
 tabs.forEach(tab => {
@@ -27,18 +29,26 @@ tabs.forEach(tab => {
   });
 });
 
+// Escape to hide window
 document.addEventListener('keydown', async (e) => {
   if (e.key === 'Escape') {
-    const win = getCurrentWindow();
-    await win.hide();
+    try {
+      await window.__TAURI_INTERNALS__.invoke('plugin:window|set_visible', { visible: false });
+    } catch (err) {
+      // Ignore
+    }
   }
 });
 
+// Click outside to hide
 document.addEventListener('mousedown', async (e) => {
-  const app = document.getElementById('app');
-  if (!app.contains(e.target)) {
-    const win = getCurrentWindow();
-    await win.hide();
+  const appEl = document.getElementById('app');
+  if (!appEl.contains(e.target)) {
+    try {
+      await window.__TAURI_INTERNALS__.invoke('plugin:window|set_visible', { visible: false });
+    } catch (err) {
+      // Ignore
+    }
   }
 });
 

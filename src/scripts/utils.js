@@ -35,7 +35,43 @@ export function formatRelativeDate(isoString) {
 }
 
 export function escapeHtml(str) {
+  if (!str) return '';
   const div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
 }
+
+// Toast notification system
+export function showToast(message, type = 'info', duration = 3000) {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.textContent = message;
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.style.animation = 'slideIn 0.2s ease-out reverse';
+    setTimeout(() => toast.remove(), 200);
+  }, duration);
+}
+
+// Predefined categories and tags
+export const DEFAULT_CATEGORIES = [
+  'Pessoal',
+  'Trabalho',
+  'Estudos',
+  'Finanças',
+  'Saúde',
+  'Projetos',
+  'Idéias'
+];
+
+export const DEFAULT_TAGS = [
+  'urgente',
+  'importante',
+  'lembrete',
+  'ideia',
+  'tarefa',
+  'referencia',
+  'rascunho'
+];

@@ -64,6 +64,11 @@
   color: #fff;
 }
 
+.btn-sm {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
 .btn-icon {
   background: none;
   border: none;
@@ -98,6 +103,17 @@
   border-radius: 12px;
   font-size: 12px;
   margin: 2px;
+  cursor: pointer;
+}
+
+.tag:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.tag.active {
+  background: var(--accent);
+  color: #fff;
 }
 
 .tag .remove {
@@ -249,4 +265,157 @@
   font-size: 11px;
   color: var(--text-secondary);
   margin-top: 8px;
+}
+
+/* Toast notifications */
+.toast-container {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.toast {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 13px;
+  color: var(--text-primary);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  animation: slideIn 0.2s ease-out;
+  max-width: 300px;
+}
+
+.toast.success {
+  border-color: var(--success);
+}
+
+.toast.error {
+  border-color: var(--danger);
+}
+
+.toast.warning {
+  border-color: var(--warning);
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Shortcut capture input */
+.shortcut-capture {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  width: 100%;
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: center;
+  font-size: 14px;
+}
+
+.shortcut-capture:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.shortcut-capture.recording {
+  border-color: var(--accent);
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* Category/Tag chips */
+.chip-input {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  min-height: 38px;
+  cursor: text;
+}
+
+.chip-input:focus-within {
+  border-color: var(--accent);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--accent);
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+}
+
+.chip .remove {
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.chip-input input {
+  border: none;
+  background: none;
+  outline: none;
+  flex: 1;
+  min-width: 80px;
+  padding: 2px 4px;
+}
+
+/* Quick note area */
+.quick-note {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.quick-note textarea {
+  flex: 1;
+  border: none;
+  background: transparent;
+  resize: none;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.quick-note textarea:focus {
+  outline: none;
+}
+
+.quick-note .note-title {
+  font-size: 18px;
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  padding: 0 0 8px 0;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.quick-note .note-title:focus {
+  outline: none;
+  border-bottom-color: var(--accent);
 }

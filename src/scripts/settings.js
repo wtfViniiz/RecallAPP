@@ -1,4 +1,5 @@
 import { api } from './api.js';
+import { showToast } from './utils.js';
 
 export async function initSettings() {
   const container = document.getElementById('view-settings');
@@ -15,7 +16,13 @@ export async function initSettings() {
     </div>
     <div class="form-group">
       <label>Atalho global</label>
-      <input type="text" id="setting-shortcut" value="${config.shortcut}" placeholder="Ctrl+Alt+x">
+      <div class="shortcut-capture" id="shortcut-display" tabindex="0" title="Clique para gravar">
+        ${formatShortcut(config.shortcut)}
+      </div>
+      <input type="hidden" id="setting-shortcut" value="${config.shortcut}">
+      <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">
+        Clique e pressione a combinacao desejada
+      </div>
     </div>
     <div class="form-group" style="display:flex; justify-content:space-between; align-items:center;">
       <label style="margin:0">Iniciar com o Windows</label>
@@ -40,15 +47,20 @@ export async function initSettings() {
     <div class="timestamp" style="margin-top: 16px;">Versao: 0.1.0</div>
   `;
 
+  // Theme toggle live preview
   document.querySelectorAll('input[name="theme"]').forEach(radio => {
     radio.addEventListener('change', () => {
       document.body.className = radio.value;
     });
   });
 
+  // Shortcut capture
+  setupShortcutCapture();
+
+  // Save button
   document.getElementById('btn-save-settings').addEventListener('click', async () => {
     const theme = document.querySelector('input[name="theme"]:checked').value;
-    const shortcut = document.getElementById('setting-shortcut').value.trim();
+    const shortcut = document.getElementById('setting-shortcut').value;
     const autostart = document.getElementById('setting-autostart').checked;
     const check_updates = document.getElementById('setting-updates').checked;
 
@@ -62,20 +74,94 @@ export async function initSettings() {
     });
 
     document.body.className = theme;
-    alert('Configuracoes salvas!');
+    showToast('Configuracoes salvas', 'success');
   });
 
+  // Check updates button
   document.getElementById('btn-check-updates').addEventListener('click', async () => {
     try {
-      const { check } = window.__TAURI__.updater;
-      const update = await check();
-      if (update) {
-        alert(`Atualizacao disponivel: v${update.version}`);
+      const update = await window.__TAURI_INTERNALS__.invoke('plugin:updater|check');
+      if (update && update.available) {
+        showToast(`Atualizacao disponivel: v${update.version}`, 'info');
       } else {
-        alert('Nenhuma atualizacao disponivel.');
+        showToast('Nenhuma atualizacao disponivel', 'info');
       }
     } catch (e) {
-      alert('Erro ao verificar atualizacoes: ' + e);
+      showToast('Erro ao verificar atualizacoes', 'error');
     }
   });
+}
+
+function setupShortcutCapture() {
+  const display = document.getElementById('shortcut-display');
+  const input = document.getElementById('setting-shortcut');
+  let isRecording = false;
+
+  display.addEventListener('click', () => {
+    isRecording = true;
+    display.classList.add('recording');
+    display.textContent = 'Pressione a combinacao...';
+    display.focus();
+  });
+
+  display.addEventListener('keydown', (e) => {
+    if (!isRecording) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Escape cancels recording
+    if (e.key === 'Escape') {
+      isRecording = false;
+      display.classList.remove('recording');
+      display.textContent = formatShortcut(input.value);
+      return;
+    }
+
+    // Need at least one modifier
+    if (!e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) {
+      return;
+    }
+
+    // Ignore modifier-only keydowns
+    if (['Control', 'Alt', 'Shift', 'Meta'].includes(e.key)) {
+      return;
+    }
+
+    // Build shortcut string
+    const parts = [];
+    if (e.ctrlKey) parts.push('Ctrl');
+    if (e.altKey) parts.push('Alt');
+    if (e.shiftKey) parts.push('Shift');
+    if (e.metaKey) parts.push('Super');
+    parts.push(e.key.length === 1 ? e.key.toUpperCase() : e.key);
+
+    const shortcut = parts.join('+');
+    input.value = shortcut;
+    display.textContent = formatShortcut(shortcut);
+    display.classList.remove('recording');
+    isRecording = false;
+
+    showToast(`Atalho definido: ${formatShortcut(shortcut)}`, 'success');
+  });
+
+  display.addEventListener('blur', () => {
+    if (isRecording) {
+      isRecording = false;
+      display.classList.remove('recording');
+      display.textContent = formatShortcut(input.value);
+    }
+  });
+}
+
+function formatShortcut(shortcut) {
+  if (!shortcut) return 'Nenhum';
+  return shortcut.split('+').map(part => {
+    switch (part.toLowerCase()) {
+      case 'ctrl': return 'Ctrl';
+      case 'alt': return 'Alt';
+      case 'shift': return 'Shift';
+      case 'super': return 'Win';
+      default: return part.toUpperCase();
+    }
+  }).join(' + ');
 }

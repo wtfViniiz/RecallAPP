@@ -6,7 +6,13 @@ pub fn register_shortcut(app: &tauri::App) -> Result<(), Box<dyn std::error::Err
     let config = storage::load_config(app.handle());
     let shortcut_str = config.shortcut.clone();
 
-    let shortcut = parse_shortcut(&shortcut_str)?;
+    let shortcut = match parse_shortcut(&shortcut_str) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("Failed to parse shortcut '{}': {}", shortcut_str, e);
+            return Ok(());
+        }
+    };
 
     app.handle().plugin(
         tauri_plugin_global_shortcut::Builder::new()
@@ -25,7 +31,13 @@ pub fn register_shortcut(app: &tauri::App) -> Result<(), Box<dyn std::error::Err
             .build(),
     )?;
 
-    app.global_shortcut().on_shortcut(shortcut, |_, _, _| {})?;
+    // Try to register, but don't panic if already registered
+    match app.global_shortcut().on_shortcut(shortcut, |_, _, _| {}) {
+        Ok(_) => {}
+        Err(e) => {
+            eprintln!("Warning: Could not register shortcut '{}': {}", shortcut_str, e);
+        }
+    }
 
     Ok(())
 }
