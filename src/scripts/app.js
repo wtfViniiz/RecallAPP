@@ -80,3 +80,71 @@ document.addEventListener('mousedown', async (e) => {
 
 applyTheme();
 initNotes();
+
+// Tray action handler
+window.addEventListener('tray-action', (e) => {
+  const action = e.detail;
+  if (action === 'new-note') {
+    document.querySelector('[data-tab="notes"]').click();
+    setTimeout(() => showTemplateSelector(), 100);
+  } else if (action === 'new-reminder') {
+    document.querySelector('[data-tab="reminders"]').click();
+    setTimeout(() => document.getElementById('btn-new-reminder')?.click(), 100);
+  } else if (action === 'settings') {
+    document.querySelector('[data-tab="settings"]').click();
+  }
+});
+
+// Quick capture (Ctrl+Shift+N)
+document.addEventListener('keydown', async (e) => {
+  if (e.ctrlKey && e.shiftKey && e.key === 'N') {
+    e.preventDefault();
+    showQuickCapture();
+  }
+});
+
+function showQuickCapture() {
+  // Switch to notes tab
+  tabs.forEach(t => t.classList.remove('active'));
+  views.forEach(v => v.classList.remove('active'));
+  document.querySelector('[data-tab="notes"]').classList.add('active');
+  document.getElementById('view-notes').classList.add('active');
+
+  const container = document.getElementById('view-notes');
+  container.innerHTML = `
+    <div class="quick-capture">
+      <textarea id="quick-capture-input" placeholder="Anotacao rapida... (Enter para salvar, Esc para cancelar)" autofocus></textarea>
+      <div class="quick-capture-actions">
+        <button class="btn btn-secondary" id="quick-capture-cancel">Cancelar</button>
+        <button class="btn btn-primary" id="quick-capture-save">Salvar</button>
+      </div>
+    </div>
+  `;
+
+  const input = document.getElementById('quick-capture-input');
+  input.focus();
+
+  document.getElementById('quick-capture-cancel').addEventListener('click', () => {
+    initNotes();
+  });
+
+  document.getElementById('quick-capture-save').addEventListener('click', async () => {
+    const content = input.value.trim();
+    if (content) {
+      const title = content.split('\n')[0].slice(0, 50);
+      await api.createNote({ title, content, tags: ['rascunho'] });
+      showToast('Nota rapida salva', 'success');
+    }
+    initNotes();
+  });
+
+  input.addEventListener('keydown', async (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      document.getElementById('quick-capture-save').click();
+    }
+    if (e.key === 'Escape') {
+      initNotes();
+    }
+  });
+}

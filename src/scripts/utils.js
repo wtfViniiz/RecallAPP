@@ -55,6 +55,41 @@ export function showToast(message, type = 'info', duration = 3000) {
   }, duration);
 }
 
+// Lightweight markdown renderer
+export function renderMarkdown(text) {
+  if (!text) return '';
+  let html = escapeHtml(text);
+
+  // Code blocks
+  html = html.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+  // Inline code
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+  // Bold
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  // Italic
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  // Strikethrough
+  html = html.replace(/~~(.+?)~~/g, '<del>$1</del>');
+  // Headings
+  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+  // Blockquote
+  html = html.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
+  // Unordered list items
+  html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
+  // Horizontal rule
+  html = html.replace(/^---$/gm, '<hr>');
+  // Links
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+  // Images (local paths)
+  html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" style="max-width:100%;border-radius:6px;margin:4px 0">');
+  // Line breaks
+  html = html.replace(/\n/g, '<br>');
+
+  return html;
+}
+
 // Predefined categories and tags
 export const DEFAULT_CATEGORIES = [
   'Pessoal',
@@ -75,3 +110,26 @@ export const DEFAULT_TAGS = [
   'referencia',
   'rascunho'
 ];
+
+export const NOTE_TEMPLATES = {
+  'reuniao': {
+    name: 'Reuniao',
+    title: 'Reuniao - ',
+    content: '# Participantes\n\n# Pauta\n\n# Decisoes\n\n# Proximos passos\n'
+  },
+  'tarefa': {
+    name: 'Tarefa',
+    title: '',
+    content: '- [ ] \n- [ ] \n- [ ] \n'
+  },
+  'diario': {
+    name: 'Diario',
+    title: 'Diario - ' + new Date().toLocaleDateString('pt-BR'),
+    content: '# Como me sinto\n\n# O que fiz hoje\n\n# Amanha pretendo\n'
+  },
+  'estudo': {
+    name: 'Estudo',
+    title: '',
+    content: '# Assunto\n\n# Notas\n\n# Referencias\n'
+  }
+};

@@ -29,23 +29,19 @@ pub fn setup_tray(app: &App) -> Result<(), Box<dyn std::error::Error>> {
             "new_note" => {
                 show_main_window(app);
                 if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.eval(
-                        "document.querySelector('[data-tab=\"notes\"]').click(); setTimeout(() => document.getElementById('btn-new-note')?.click(), 100);"
-                    );
+                    let _ = window.eval("window.dispatchEvent(new CustomEvent('tray-action', { detail: 'new-note' }));");
                 }
             }
             "new_reminder" => {
                 show_main_window(app);
                 if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.eval(
-                        "document.querySelector('[data-tab=\"reminders\"]').click(); setTimeout(() => document.getElementById('btn-new-reminder')?.click(), 100);"
-                    );
+                    let _ = window.eval("window.dispatchEvent(new CustomEvent('tray-action', { detail: 'new-reminder' }));");
                 }
             }
             "settings" => {
                 show_main_window(app);
                 if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.eval("document.querySelector('[data-tab=\"settings\"]').click();");
+                    let _ = window.eval("window.dispatchEvent(new CustomEvent('tray-action', { detail: 'settings' }));");
                 }
             }
             "quit" => {

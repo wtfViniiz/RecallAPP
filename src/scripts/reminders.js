@@ -14,10 +14,15 @@ async function renderRemindersList() {
   container.innerHTML = `
     <div class="toolbar">
       <h3>Lembretes</h3>
-      <button class="btn btn-primary" id="btn-new-reminder">+ Novo</button>
+      <div>
+        <button class="btn btn-secondary" id="btn-calendar-view" title="Calendario">&#128197;</button>
+        <button class="btn btn-primary" id="btn-new-reminder">+ Novo</button>
+      </div>
     </div>
     <div id="reminders-list"></div>
   `;
+
+  document.getElementById('btn-calendar-view').addEventListener('click', renderCalendarView);
 
   document.getElementById('btn-new-reminder').addEventListener('click', () => openReminderForm(null));
   await loadReminders();
@@ -110,6 +115,12 @@ function openReminderForm(reminder) {
       <input type="text" id="reminder-desc" value="${reminder?.description ? escapeHtml(reminder.description) : ''}" placeholder="Detalhes opcionais">
     </div>
     <div class="form-group">
+      <label>Vincular nota (opcional)</label>
+      <select id="reminder-note">
+        <option value="">Nenhuma</option>
+      </select>
+    </div>
+    <div class="form-group">
       <label>Tipo</label>
       <div class="radio-group">
         <label><input type="radio" name="reminder-type" value="datetime" checked> Data/hora exata</label>
@@ -134,6 +145,19 @@ function openReminderForm(reminder) {
       <input type="number" id="reminder-minutes" min="1" value="30">
     </div>
   `;
+
+  // Populate note selector
+  try {
+    const notes = await api.getNotes(null);
+    const noteSelect = document.getElementById('reminder-note');
+    notes.forEach(note => {
+      const option = document.createElement('option');
+      option.value = note.id;
+      option.textContent = note.title || 'Sem titulo';
+      if (reminder?.note_id === note.id) option.selected = true;
+      noteSelect.appendChild(option);
+    });
+  } catch (e) {}
 
   if (reminder?.trigger_at) {
     const d = new Date(reminder.trigger_at);
@@ -204,7 +228,8 @@ async function saveReminder() {
 
   // Creating new reminder
   const type = document.querySelector('input[name="reminder-type"]:checked').value;
-  const input = { title, description };
+  const noteId = document.getElementById('reminder-note').value || null;
+  const input = { title, description, note_id: noteId };
 
   if (type === 'datetime') {
     const dt = document.getElementById('reminder-datetime').value;
@@ -228,4 +253,85 @@ async function saveReminder() {
     showToast('Erro ao criar lembrete', 'error');
   }
   renderRemindersList();
+}
+
+async function renderCalendarView() {
+  const container = document.getElementById('view-reminders');
+  const reminders = await api.getReminders();
+
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const startDay = firstDay.getDay();
+  const daysInMonth = lastDay.getDate();
+
+  const monthNames = ['Janeiro', 'Fevereiro', 'Marco', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+  const dayNames = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'];
+
+  // Get reminders for this month
+  const monthReminders = reminders.filter(r => {
+    const d = new Date(r.trigger_at);
+    return d.getMonth() === month && d.getFullYear() === year;
+  });
+
+  // Group by day
+  const remindersByDay = {};
+  monthReminders.forEach(r => {
+    const day = new Date(r.trigger_at).getDate();
+    if (!remindersByDay[day]) remindersByDay[day] = [];
+    remindersByDay[day].push(r);
+  });
+
+  let calendarHtml = `
+    <div class="header">
+      <button class="btn btn-secondary" id="btn-back-calendar">Voltar</button>
+      <h3>${monthNames[month]} ${year}</h3>
+      <div></div>
+    </div>
+    <div class="calendar">
+      <div class="calendar-header">
+        ${dayNames.map(d => `<div class="calendar-day-name">${d}</div>`).join('')}
+      </div>
+      <div class="calendar-body">
+  `;
+
+  // Empty cells before first day
+  for (let i = 0; i < startDay; i++) {
+    calendarHtml += '<div class="calendar-day empty"></div>';
+  }
+
+  // Days of the month
+  for (let day = 1; day <= daysInMonth; day++) {
+    const isToday = day === now.getDate();
+    const hasReminders = remindersByDay[day]?.length > 0;
+    const dots = hasReminders ? remindersByDay[day].map(() => '<span class="reminder-dot"></span>').join('') : '';
+
+    calendarHtml += `
+      <div class="calendar-day ${isToday ? 'today' : ''} ${hasReminders ? 'has-reminders' : ''}" data-day="${day}">
+        <span class="day-number">${day}</span>
+        <div class="reminder-dots">${dots}</div>
+      </div>
+    `;
+  }
+
+  calendarHtml += '</div></div>';
+
+  container.innerHTML = calendarHtml;
+
+  document.getElementById('btn-back-calendar').addEventListener('click', renderRemindersList);
+
+  // Click on day to show reminders
+  container.querySelectorAll('.calendar-day:not(.empty)').forEach(dayEl => {
+    dayEl.addEventListener('click', () => {
+      const day = parseInt(dayEl.dataset.day);
+      const dayReminders = remindersByDay[day] || [];
+      if (dayReminders.length > 0) {
+        const list = dayReminders.map(r => `- ${r.title}`).join('\n');
+        showToast(`${day}/${month + 1}: ${dayReminders.length} lembrete(s)`, 'info');
+      }
+    });
+  });
 }

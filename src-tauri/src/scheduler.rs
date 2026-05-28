@@ -1,7 +1,7 @@
 use crate::storage;
 use chrono::{DateTime, Utc};
 use std::sync::Arc;
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
 pub fn start_scheduler(app: AppHandle) {
     let app = Arc::new(app);
@@ -41,6 +41,11 @@ fn check_and_fire(app: &AppHandle) {
                 .title(&reminder.title)
                 .body(reminder.description.as_deref().unwrap_or(""))
                 .show();
+
+            // Bring window to attention
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.request_user_attention(Some(tauri::UserAttentionType::Critical));
+            }
 
             // Handle recurrence
             if let Some(ref repeat) = reminder.repeat {

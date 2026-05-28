@@ -1,5 +1,5 @@
 import { api } from './api.js';
-import { formatDate, formatDateTime, escapeHtml, showToast, DEFAULT_CATEGORIES, DEFAULT_TAGS } from './utils.js';
+import { formatDate, formatDateTime, escapeHtml, showToast, renderMarkdown, DEFAULT_CATEGORIES, DEFAULT_TAGS, NOTE_TEMPLATES } from './utils.js';
 
 let currentView = 'list';
 let currentNote = null;
@@ -41,6 +41,7 @@ async function renderNotesList() {
     <div class="filter-row">
       <select id="filter-category"><option value="">Todas categorias</option></select>
       <select id="filter-tag"><option value="">Todas tags</option></select>
+      <button class="btn btn-secondary btn-sm" id="btn-recent" title="Recentes">&#128336; Recent</button>
       <button class="btn btn-secondary btn-sm" id="btn-trash" title="Lixeira">&#128465; Lixeira</button>
     </div>
     <div id="notes-list"></div>
@@ -67,7 +68,8 @@ async function renderNotesList() {
   document.getElementById('note-search').addEventListener('input', debounce(loadNotes, 200));
   document.getElementById('filter-category').addEventListener('change', loadNotes);
   document.getElementById('filter-tag').addEventListener('change', loadNotes);
-  document.getElementById('btn-new-note').addEventListener('click', () => openEditor(null));
+  document.getElementById('btn-new-note').addEventListener('click', () => showTemplateSelector());
+  document.getElementById('btn-recent').addEventListener('click', () => loadRecentNotes());
 
   await loadNotes();
 }
@@ -121,6 +123,48 @@ async function loadNotes() {
       await api.trashNote(id);
       showToast('Nota movida para lixeira', 'success');
       await loadNotes();
+    });
+  });
+}
+
+async function loadRecentNotes() {
+  const notes = await api.getNotes(null);
+  const recent = notes.slice(0, 10); // Already sorted by updated_at desc
+  const list = document.getElementById('notes-list');
+
+  if (recent.length === 0) {
+    list.innerHTML = '<div class="empty">Nenhuma nota recente</div>';
+    return;
+  }
+
+  list.innerHTML = recent.map(note => `
+    <div class="card ${note.pinned ? 'pinned' : ''}" data-id="${note.id}">
+      <div class="card-header">
+        <div class="card-title">${escapeHtml(note.title || 'Sem titulo')}</div>
+        <button class="btn-icon delete-note-btn" data-id="${note.id}" title="Excluir">&#128465;</button>
+      </div>
+      <div class="card-meta">
+        ${note.category ? `<span>${escapeHtml(note.category)}</span>` : ''}
+        ${note.tags.map(t => `<span class="tag">#${escapeHtml(t)}</span>`).join('')}
+        <span>${formatDate(note.updated_at)}</span>
+      </div>
+    </div>
+  `).join('');
+
+  list.querySelectorAll('.card').forEach(card => {
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('.delete-note-btn')) return;
+      const note = recent.find(n => n.id === card.dataset.id);
+      openEditor(note);
+    });
+  });
+
+  list.querySelectorAll('.delete-note-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await api.trashNote(btn.dataset.id);
+      showToast('Nota movida para lixeira', 'success');
+      loadRecentNotes();
     });
   });
 }
@@ -195,6 +239,44 @@ function highlightMatch(text, query) {
   return escaped.replace(regex, '<mark>$1</mark>');
 }
 
+function showTemplateSelector() {
+  const container = document.getElementById('view-notes');
+  currentView = 'templates';
+
+  container.innerHTML = `
+    <div class="header">
+      <button class="btn btn-secondary" id="btn-back-templates">Voltar</button>
+      <h3>Nova nota</h3>
+    </div>
+    <div class="template-grid">
+      <div class="template-card" data-template="blank">
+        <div class="template-icon">&#128221;</div>
+        <div class="template-name">Em branco</div>
+      </div>
+      ${Object.entries(NOTE_TEMPLATES).map(([key, tpl]) => `
+        <div class="template-card" data-template="${key}">
+          <div class="template-icon">${key === 'reuniao' ? '&#128101;' : key === 'tarefa' ? '&#9745;' : key === 'diario' ? '&#128214;' : '&#127891;'}</div>
+          <div class="template-name">${tpl.name}</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+
+  document.getElementById('btn-back-templates').addEventListener('click', renderNotesList);
+
+  container.querySelectorAll('.template-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const templateKey = card.dataset.template;
+      if (templateKey === 'blank') {
+        openEditor(null);
+      } else {
+        const tpl = NOTE_TEMPLATES[templateKey];
+        openEditor({ title: tpl.title, content: tpl.content, tags: [], category: null });
+      }
+    });
+  });
+}
+
 function openEditor(note) {
   currentView = 'editor';
   currentNote = note;
@@ -207,6 +289,7 @@ function openEditor(note) {
     <div class="header">
       <button class="btn btn-secondary" id="btn-back">Voltar</button>
       <div class="header-actions">
+        <button class="btn btn-secondary" id="btn-toggle-preview" title="Visualizar">&#128065;</button>
         <button class="btn btn-secondary" id="btn-copy-all" title="Copiar tudo">&#128203;</button>
         ${note ? `<button class="btn btn-secondary" id="btn-pin-note" title="Fixar na lista">${note.pinned ? '&#9733;' : '&#9734;'}</button>` : ''}
         ${note ? `<button class="btn btn-danger" id="btn-delete-note">Excluir</button>` : ''}
@@ -235,12 +318,13 @@ function openEditor(note) {
         </div>
       </div>
     </div>
-    <div class="editor-wrapper">
+    <div class="editor-wrapper" id="editor-wrapper">
       <div class="line-numbers" id="line-numbers"></div>
       <div class="editor-container">
         <textarea id="note-content" placeholder="Comece a escrever... (Ctrl+V para colar imagens)">${note ? escapeHtml(note.content) : ''}</textarea>
       </div>
     </div>
+    <div class="markdown-preview" id="markdown-preview" style="display:none"></div>
     ${note ? `
       <div class="timestamp">Criada: ${formatDateTime(note.created_at)}</div>
       <div class="timestamp">Editada: ${formatDateTime(note.updated_at)}</div>
@@ -330,6 +414,28 @@ function openEditor(note) {
       showToast('Nota copiada', 'success');
     } catch (e) {
       showToast('Erro ao copiar', 'error');
+    }
+  });
+
+  // Preview toggle
+  let isPreviewMode = false;
+  const editorWrapper = document.getElementById('editor-wrapper');
+  const previewDiv = document.getElementById('markdown-preview');
+  const toggleBtn = document.getElementById('btn-toggle-preview');
+
+  toggleBtn.addEventListener('click', () => {
+    isPreviewMode = !isPreviewMode;
+    if (isPreviewMode) {
+      editorWrapper.style.display = 'none';
+      previewDiv.style.display = 'block';
+      previewDiv.innerHTML = renderMarkdown(contentInput.value);
+      toggleBtn.innerHTML = '&#9998;'; // Edit icon
+      toggleBtn.title = 'Editar';
+    } else {
+      editorWrapper.style.display = 'flex';
+      previewDiv.style.display = 'none';
+      toggleBtn.innerHTML = '&#128065;'; // Eye icon
+      toggleBtn.title = 'Visualizar';
     }
   });
 
