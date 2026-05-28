@@ -645,6 +645,17 @@ mark {
   font-weight: 500;
 }
 
+/* Calendar Navigation */
+.calendar-nav {
+  display: flex;
+  gap: 4px;
+}
+
+.calendar-nav .btn {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
 /* Calendar */
 .calendar {
   border: 1px solid var(--border);

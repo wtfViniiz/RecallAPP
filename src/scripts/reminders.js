@@ -4,6 +4,8 @@ import { formatDateTime, formatRelativeDate, escapeHtml, showToast, showConfirm 
 let currentReminder = null;
 let remindersOffset = 0;
 const REMINDERS_PAGE_SIZE = 30;
+let calendarYear = new Date().getFullYear();
+let calendarMonth = new Date().getMonth();
 
 export async function initReminders() {
   await renderRemindersList();
@@ -311,8 +313,8 @@ async function renderCalendarView() {
   const reminders = result.items;
 
   const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth();
+  const year = calendarYear;
+  const month = calendarMonth;
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
   const startDay = firstDay.getDay();
@@ -336,11 +338,17 @@ async function renderCalendarView() {
     remindersByDay[day].push(r);
   });
 
+  const isCurrentMonth = year === now.getFullYear() && month === now.getMonth();
+
   let calendarHtml = `
     <div class="header">
       <button class="btn btn-secondary" id="btn-back-calendar">Voltar</button>
       <h3>${monthNames[month]} ${year}</h3>
-      <div></div>
+      <div class="calendar-nav">
+        <button class="btn btn-secondary" id="btn-prev-month" title="Mes anterior">&lt;</button>
+        <button class="btn btn-secondary" id="btn-today-month" title="Mes atual">Hoje</button>
+        <button class="btn btn-secondary" id="btn-next-month" title="Proximo mes">&gt;</button>
+      </div>
     </div>
     <div class="calendar">
       <div class="calendar-header">
@@ -356,7 +364,7 @@ async function renderCalendarView() {
 
   // Days of the month
   for (let day = 1; day <= daysInMonth; day++) {
-    const isToday = day === now.getDate();
+    const isToday = isCurrentMonth && day === now.getDate();
     const hasReminders = remindersByDay[day]?.length > 0;
     const dots = hasReminders ? remindersByDay[day].map(() => '<span class="reminder-dot"></span>').join('') : '';
 
@@ -372,7 +380,30 @@ async function renderCalendarView() {
 
   container.innerHTML = calendarHtml;
 
-  document.getElementById('btn-back-calendar').addEventListener('click', renderRemindersList);
+  document.getElementById('btn-back-calendar').addEventListener('click', () => {
+    calendarYear = now.getFullYear();
+    calendarMonth = now.getMonth();
+    renderRemindersList();
+  });
+
+  // Navigation
+  document.getElementById('btn-prev-month').addEventListener('click', () => {
+    calendarMonth--;
+    if (calendarMonth < 0) { calendarMonth = 11; calendarYear--; }
+    renderCalendarView();
+  });
+
+  document.getElementById('btn-next-month').addEventListener('click', () => {
+    calendarMonth++;
+    if (calendarMonth > 11) { calendarMonth = 0; calendarYear++; }
+    renderCalendarView();
+  });
+
+  document.getElementById('btn-today-month').addEventListener('click', () => {
+    calendarYear = now.getFullYear();
+    calendarMonth = now.getMonth();
+    renderCalendarView();
+  });
 
   // Click on day to show reminders
   container.querySelectorAll('.calendar-day:not(.empty)').forEach(dayEl => {
@@ -380,8 +411,10 @@ async function renderCalendarView() {
       const day = parseInt(dayEl.dataset.day);
       const dayReminders = remindersByDay[day] || [];
       if (dayReminders.length > 0) {
-        const titles = dayReminders.map(r => r.title).join(', ');
-        showToast(`${day}/${month + 1}: ${titles}`, 'info', 5000);
+        const titles = dayReminders.map(r => `• ${r.title}`).join('\n');
+        showToast(`${day}/${month + 1}:\n${titles}`, 'info', 8000);
+      } else {
+        showToast(`${day}/${month + 1}: Sem lembretes`, 'info', 3000);
       }
     });
   });
