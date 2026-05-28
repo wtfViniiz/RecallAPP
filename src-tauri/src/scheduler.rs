@@ -95,7 +95,34 @@ fn check_and_fire(app: &AppHandle, cache: &NoteCache) {
                         continue;
                     }
                 };
-                reminder.trigger_at = next.to_rfc3339();
+                // Catch up: advance past now if multiple periods were missed
+                let mut final_next = next;
+                while final_next <= now {
+                    final_next = match repeat.as_str() {
+                        "daily" => {
+                            let naive = final_next.naive_utc() + chrono::Duration::days(1);
+                            chrono::DateTime::from_naive_utc_and_offset(naive, *final_next.offset())
+                        },
+                        "weekly" => {
+                            let naive = final_next.naive_utc() + chrono::Duration::weeks(1);
+                            chrono::DateTime::from_naive_utc_and_offset(naive, *final_next.offset())
+                        },
+                        "monthly" => {
+                            let (ny, nm) = if final_next.month() == 12 {
+                                (final_next.year() + 1, 1)
+                            } else {
+                                (final_next.year(), final_next.month() + 1)
+                            };
+                            let d = final_next.day().min(days_in_month(ny, nm));
+                            chrono::NaiveDate::from_ymd_opt(ny, nm, d)
+                                .and_then(|dt| dt.and_hms_opt(final_next.hour(), final_next.minute(), final_next.second()))
+                                .map(|dt| chrono::DateTime::from_naive_utc_and_offset(dt, *final_next.offset()))
+                                .unwrap_or(final_next + chrono::Duration::days(30))
+                        },
+                        _ => break,
+                    };
+                }
+                reminder.trigger_at = final_next.to_rfc3339();
                 let _ = cache.save_reminder(app, &reminder);
             } else {
                 reminder.status = "fired".to_string();

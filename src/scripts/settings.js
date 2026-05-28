@@ -68,7 +68,7 @@ export async function initSettings() {
         theme,
         shortcut,
         autostart,
-        check_updates: false,
+        check_updates: config.check_updates,
         window_width: config.window_width,
         window_height: config.window_height,
       });

@@ -100,8 +100,12 @@ function renderNoteCards(notes, searchQuery) {
   `).join('');
 }
 
-function attachNoteCardHandlers(list, notes) {
-  list.querySelectorAll('.card').forEach(card => {
+function attachNoteCardHandlers(list, notes, append = false) {
+  const cards = append
+    ? list.querySelectorAll('.card:not([data-handler])')
+    : list.querySelectorAll('.card');
+  cards.forEach(card => {
+    card.dataset.handler = 'true';
     card.addEventListener('click', (e) => {
       if (e.target.closest('.delete-note-btn')) return;
       if (card.classList.contains('drag-over')) return;
@@ -221,7 +225,7 @@ async function loadNotes(append = false) {
   }
 
   notesOffset += notes.length;
-  attachNoteCardHandlers(list, allLoadedNotes);
+  attachNoteCardHandlers(list, allLoadedNotes, append);
 
   if (notesOffset < total) {
     const loadMoreHtml = '<div class="load-more-container"><button class="btn btn-secondary" id="btn-load-more">Carregar mais</button></div>';
@@ -290,8 +294,8 @@ async function renderTrashList() {
       <div class="card-header">
         <div class="card-title">${escapeHtml(note.title || 'Sem titulo')}</div>
         <div class="header-actions">
-          <button class="btn btn-secondary btn-sm" data-restore="${note.id}">Restaurar</button>
-          <button class="btn btn-danger btn-sm" data-delete="${note.id}">Excluir</button>
+          <button class="btn btn-secondary btn-sm" data-restore="${escapeHtml(note.id)}">Restaurar</button>
+          <button class="btn btn-danger btn-sm" data-delete="${escapeHtml(note.id)}">Excluir</button>
         </div>
       </div>
       <div class="card-meta">
@@ -612,7 +616,7 @@ function openEditor(note) {
         urlInput.addEventListener('blur', finishLink);
         urlInput.addEventListener('keydown', (evt) => {
           if (evt.key === 'Enter') { evt.preventDefault(); finishLink(); }
-          if (evt.key === 'Escape') { finished = true; urlContainer.replaceWith(document.createTextNode(selected || 'link')); }
+          if (evt.key === 'Escape') { evt.stopPropagation(); finished = true; urlContainer.replaceWith(document.createTextNode(selected || 'link')); }
         });
       }
     }

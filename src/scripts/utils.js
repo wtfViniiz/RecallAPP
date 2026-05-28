@@ -160,13 +160,15 @@ export function renderMarkdown(text) {
   html = html.replace(/((<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>');
   // Horizontal rule
   html = html.replace(/^---$/gm, '<hr>');
+  // Helper: re-escape for attribute context (escapeHtml already ran globally)
+  const attrEscape = (s) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   // Links (with URL sanitization)
   html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, text, url) => {
-    return `<a href="${sanitizeUrl(url)}" target="_blank">${text}</a>`;
+    return `<a href="${attrEscape(sanitizeUrl(url))}" target="_blank">${text}</a>`;
   });
   // Images (with URL sanitization)
   html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, url) => {
-    return `<img src="${sanitizeUrl(url)}" alt="${alt}" style="max-width:100%;border-radius:6px;margin:4px 0">`;
+    return `<img src="${attrEscape(sanitizeUrl(url))}" alt="${attrEscape(alt)}" style="max-width:100%;border-radius:6px;margin:4px 0">`;
   });
   // Line breaks (outside code blocks)
   html = html.replace(/\n/g, '<br>');

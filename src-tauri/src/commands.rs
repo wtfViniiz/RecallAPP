@@ -30,7 +30,8 @@ fn validate_id(id: &str) -> Result<(), String> {
     if id.len() > 100 {
         return Err("ID excede 100 caracteres".to_string());
     }
-    if id.contains("..") || id.contains('/') || id.contains('\\') || id.contains('\0') {
+    if id.contains("..") || id.contains('/') || id.contains('\\') || id.contains('\0')
+        || id.contains('"') || id.contains('<') || id.contains('>') || id.contains('\'') {
         return Err("ID contem caracteres invalidos".to_string());
     }
     Ok(())
@@ -213,6 +214,9 @@ pub fn create_reminder(app: AppHandle, cache: State<'_, NoteCache>, input: Creat
 
     let now = Utc::now();
     let trigger_at = if let Some(minutes) = input.relative_minutes {
+        if minutes < 1 || minutes > 525600 {
+            return Err("relative_minutes deve ser entre 1 e 525600 (1 ano)".to_string());
+        }
         (now + chrono::Duration::minutes(minutes)).to_rfc3339()
     } else if let Some(trigger) = input.trigger_at {
         chrono::DateTime::parse_from_rfc3339(&trigger)
@@ -294,6 +298,9 @@ pub fn update_reminder(app: AppHandle, cache: State<'_, NoteCache>, input: Updat
         };
     }
     if let Some(relative_minutes) = input.relative_minutes {
+        if relative_minutes < 1 || relative_minutes > 525600 {
+            return Err("relative_minutes deve ser entre 1 e 525600 (1 ano)".to_string());
+        }
         reminder.relative_minutes = Some(relative_minutes);
         // Recalculate trigger_at from now + new relative_minutes
         let new_trigger = Utc::now() + chrono::Duration::minutes(relative_minutes);
