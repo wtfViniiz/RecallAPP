@@ -7,14 +7,20 @@ use tauri::Manager;
 static DIR_INIT: Once = Once::new();
 
 fn data_dir(app_handle: &tauri::AppHandle) -> PathBuf {
-    let dir = app_handle
-        .path()
-        .app_data_dir()
-        .unwrap_or_else(|_| PathBuf::from("."))
-        .join("data");
+    let dir = match app_handle.path().app_data_dir() {
+        Ok(path) => path.join("data"),
+        Err(e) => {
+            eprintln!("[Recall] Erro ao obter diretorio de dados: {}. Usando fallback.", e);
+            PathBuf::from(".").join("data")
+        }
+    };
     DIR_INIT.call_once(|| {
-        let _ = fs::create_dir_all(dir.join("notes"));
-        let _ = fs::create_dir_all(dir.join("reminders"));
+        if let Err(e) = fs::create_dir_all(dir.join("notes")) {
+            eprintln!("[Recall] Erro ao criar diretorio notes: {}", e);
+        }
+        if let Err(e) = fs::create_dir_all(dir.join("reminders")) {
+            eprintln!("[Recall] Erro ao criar diretorio reminders: {}", e);
+        }
     });
     dir
 }

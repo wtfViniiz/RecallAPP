@@ -29,7 +29,12 @@ fn normalize_shortcut(s: &str) -> Option<String> {
     let mut key_seen = false;
 
     for raw_part in s.split('+') {
-        let part = raw_part.trim();
+        // Handle space key before trimming (trim would strip the space)
+        let part = if raw_part == " " {
+            "Space"
+        } else {
+            raw_part.trim()
+        };
         if part.is_empty() {
             return None;
         }
@@ -48,7 +53,7 @@ fn normalize_shortcut(s: &str) -> Option<String> {
             "down" => "ArrowDown".to_string(),
             "left" => "ArrowLeft".to_string(),
             "right" => "ArrowRight".to_string(),
-            " " => "Space".to_string(),
+            " " | "space" => "Space".to_string(),
             _ => part.to_string(),
         };
 

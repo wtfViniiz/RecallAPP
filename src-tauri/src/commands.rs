@@ -10,8 +10,9 @@ use tauri_plugin_global_shortcut::GlobalShortcutExt;
 use uuid::Uuid;
 
 fn validate_string(s: &str, max_len: usize, field_name: &str) -> Result<(), String> {
-    if s.len() > max_len {
-        return Err(format!("{} excede {} caracteres", field_name, max_len));
+    let char_count = s.chars().count();
+    if char_count > max_len {
+        return Err(format!("{} excede {} caracteres (tem {})", field_name, max_len, char_count));
     }
     Ok(())
 }
