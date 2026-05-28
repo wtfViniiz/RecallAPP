@@ -155,7 +155,12 @@ export function renderMarkdown(text) {
     const inner = match.replace(/^&gt; /gm, '');
     return `<blockquote>${inner}</blockquote>`;
   });
-  // List items - wrap consecutive items in <ul>
+  // Ordered list items
+  html = html.replace(/^\d+\. (.+)$/gm, '<oli>$1</oli>');
+  html = html.replace(/((<oli>.*<\/oli>\n?)+)/g, (match) => {
+    return '<ol>' + match.replace(/<\/?oli>/g, (t) => t.replace('oli', 'li')) + '</ol>';
+  });
+  // Unordered list items
   html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
   html = html.replace(/((<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>');
   // Horizontal rule

@@ -126,9 +126,9 @@ pub fn update_note(app: AppHandle, cache: State<'_, NoteCache>, input: UpdateNot
     if let Some(content) = input.content {
         note.content = content;
     }
-    note.category = input
-        .category
-        .and_then(|c| if c.is_empty() { None } else { Some(c) });
+    if let Some(category) = input.category {
+        note.category = if category.is_empty() { None } else { Some(category) };
+    }
     if let Some(tags) = input.tags {
         note.tags = tags;
     }
@@ -237,7 +237,12 @@ pub fn create_reminder(app: AppHandle, cache: State<'_, NoteCache>, input: Creat
         id: Uuid::new_v4().to_string(),
         title: input.title,
         description: input.description,
-        note_id: input.note_id,
+        note_id: if let Some(ref nid) = input.note_id {
+            validate_id(nid)?;
+            Some(nid.clone())
+        } else {
+            None
+        },
         trigger_at,
         repeat: input.repeat,
         relative_minutes: input.relative_minutes,
@@ -266,7 +271,7 @@ pub fn update_reminder(app: AppHandle, cache: State<'_, NoteCache>, input: Updat
         reminder.title = title;
     }
     if let Some(description) = input.description {
-        reminder.description = Some(description);
+        reminder.description = if description.is_empty() { None } else { Some(description) };
     }
     if let Some(status) = input.status {
         let valid_statuses = ["pending", "fired", "dismissed"];
@@ -539,6 +544,8 @@ pub fn get_custom_templates(app: AppHandle) -> Vec<CustomTemplate> {
 pub fn save_custom_template(app: AppHandle, input: CustomTemplate) -> Result<CustomTemplate, String> {
     validate_string(&input.name, 100, "Nome do template")?;
     validate_string(&input.id, 100, "ID do template")?;
+    validate_string(&input.title, 500, "Titulo do template")?;
+    validate_string(&input.content, 100_000, "Conteudo do template")?;
     let mut templates = storage::load_custom_templates(&app);
     if let Some(existing) = templates.iter_mut().find(|t| t.id == input.id) {
         *existing = input.clone();
@@ -571,7 +578,11 @@ pub fn export_data(app: AppHandle) -> Result<String, String> {
         "config": config,
     });
 
-    serde_json::to_string_pretty(&export).map_err(|e| e.to_string())
+    let json = serde_json::to_string_pretty(&export).map_err(|e| e.to_string())?;
+    if json.len() > 50 * 1024 * 1024 {
+        return Err("Exportacao excede 50MB".to_string());
+    }
+    Ok(json)
 }
 
 #[tauri::command]
@@ -603,6 +614,17 @@ pub fn import_data(app: AppHandle, cache: State<'_, NoteCache>, json_data: Strin
                             "Nota '{}' conteudo excede 100k caracteres",
                             note.id
                         ));
+                    }
+                    if let Some(ref cat) = note.category {
+                        validate_string(cat, 100, "Categoria (import)")
+                            .map_err(|e| format!("Nota '{}': {}", note.id, e))?;
+                    }
+                    if note.tags.len() > 20 {
+                        return Err(format!("Nota '{}': maximo de 20 tags", note.id));
+                    }
+                    for tag in &note.tags {
+                        validate_string(tag, 100, "Tag (import)")
+                            .map_err(|e| format!("Nota '{}': {}", note.id, e))?;
                     }
                     cache.save_note(&app, &note)?;
                     imported_notes += 1;
@@ -664,5 +686,87 @@ pub fn import_data(app: AppHandle, cache: State<'_, NoteCache>, json_data: Strin
         Ok(format!("{} ({} itens ignorados)", msg, skipped))
     } else {
         Ok(msg)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_validate_id_valid() {
+        assert!(validate_id("abc-123_def").is_ok());
+        assert!(validate_id("a").is_ok());
+    }
+
+    #[test]
+    fn test_validate_id_empty() {
+        assert!(validate_id("").is_err());
+    }
+
+    #[test]
+    fn test_validate_id_too_long() {
+        let long_id = "a".repeat(101);
+        assert!(validate_id(&long_id).is_err());
+    }
+
+    #[test]
+    fn test_validate_id_path_traversal() {
+        assert!(validate_id("../etc/passwd").is_err());
+        assert!(validate_id("..\\windows").is_err());
+        assert!(validate_id("a/b").is_err());
+        assert!(validate_id("a\\b").is_err());
+        assert!(validate_id("a\0b").is_err());
+    }
+
+    #[test]
+    fn test_validate_id_html_chars() {
+        assert!(validate_id("a<b").is_err());
+        assert!(validate_id("a>b").is_err());
+        assert!(validate_id(r#"a"b"#).is_err());
+        assert!(validate_id("a'b").is_err());
+    }
+
+    #[test]
+    fn test_validate_string_valid() {
+        assert!(validate_string("hello", 100, "test").is_ok());
+        assert!(validate_string("a", 100, "test").is_ok());
+        assert!(validate_string("", 100, "test").is_ok());
+    }
+
+    #[test]
+    fn test_validate_string_too_long() {
+        let long_str = "a".repeat(501);
+        assert!(validate_string(&long_str, 500, "Titulo").is_err());
+    }
+
+    #[test]
+    fn test_validate_string_exact_max() {
+        let exact = "a".repeat(500);
+        assert!(validate_string(&exact, 500, "Titulo").is_ok());
+    }
+
+    #[test]
+    fn test_validate_string_unicode() {
+        // Unicode chars count, not bytes
+        let unicode = "ação".repeat(125); // 500 chars
+        assert!(validate_string(&unicode, 500, "test").is_ok());
+        let over = "ação".repeat(126); // 504 chars
+        assert!(validate_string(&over, 500, "test").is_err());
+    }
+
+    #[test]
+    fn test_sanitize_path_component() {
+        assert_eq!(sanitize_path_component("abc-123"), "abc-123");
+        assert_eq!(sanitize_path_component("a/b\\c"), "abc");
+        assert_eq!(sanitize_path_component(""), "");
+        assert_eq!(sanitize_path_component("..."), "");
+    }
+
+    #[test]
+    fn test_sanitize_path_component_special_chars() {
+        let result = sanitize_path_component("test@#$%^&*()");
+        assert!(!result.contains('@'));
+        assert!(!result.contains('#'));
     }
 }

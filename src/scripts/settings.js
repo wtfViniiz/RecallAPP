@@ -3,7 +3,13 @@ import { showToast } from './utils.js';
 
 export async function initSettings() {
   const container = document.getElementById('view-settings');
-  const config = await api.getConfig();
+  let config;
+  try {
+    config = await api.getConfig();
+  } catch (err) {
+    showToast('Erro ao carregar configuracoes', 'error');
+    return;
+  }
   const version = await api.getAppVersion().catch(() => '0.1.0');
 
   container.innerHTML = `

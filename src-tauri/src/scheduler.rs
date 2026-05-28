@@ -45,6 +45,14 @@ fn check_and_fire(app: &AppHandle, cache: &NoteCache) {
     let now = Utc::now();
 
     for mut reminder in reminders {
+        // Re-read current state to avoid overwriting user actions (dismiss/snooze)
+        if let Some(current) = cache.get_reminder(app, &reminder.id) {
+            if current.status != "pending" {
+                continue;
+            }
+            reminder = current;
+        }
+
         let trigger: DateTime<Utc> = match reminder.trigger_at.parse() {
             Ok(t) => t,
             Err(_) => continue,
@@ -128,6 +136,36 @@ fn check_and_fire(app: &AppHandle, cache: &NoteCache) {
                 reminder.status = "fired".to_string();
                 let _ = cache.save_reminder(app, &reminder);
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_days_in_month_regular() {
+        assert_eq!(days_in_month(2026, 1), 31);  // January
+        assert_eq!(days_in_month(2026, 2), 28);  // February (non-leap)
+        assert_eq!(days_in_month(2026, 3), 31);  // March
+        assert_eq!(days_in_month(2026, 4), 30);  // April
+        assert_eq!(days_in_month(2026, 12), 31); // December
+    }
+
+    #[test]
+    fn test_days_in_month_leap_year() {
+        assert_eq!(days_in_month(2024, 2), 29);  // 2024 is leap
+        assert_eq!(days_in_month(2000, 2), 29);  // 2000 is leap
+        assert_eq!(days_in_month(1900, 2), 28);  // 1900 is NOT leap
+        assert_eq!(days_in_month(2025, 2), 28);  // 2025 is not leap
+    }
+
+    #[test]
+    fn test_days_in_month_all_months() {
+        let expected = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+        for (i, &days) in expected.iter().enumerate() {
+            assert_eq!(days_in_month(2026, (i + 1) as u32), days, "Month {} should have {} days", i + 1, days);
         }
     }
 }

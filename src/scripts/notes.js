@@ -75,9 +75,9 @@ async function renderNotesList() {
     tagSelect.innerHTML += `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`;
   });
 
-  document.getElementById('note-search').addEventListener('input', debounce(loadNotes, 200));
-  document.getElementById('filter-category').addEventListener('change', loadNotes);
-  document.getElementById('filter-tag').addEventListener('change', loadNotes);
+  document.getElementById('note-search').addEventListener('input', debounce(() => loadNotes(), 200));
+  document.getElementById('filter-category').addEventListener('change', () => loadNotes());
+  document.getElementById('filter-tag').addEventListener('change', () => loadNotes());
   document.getElementById('btn-new-note').addEventListener('click', () => showTemplateSelector());
   document.getElementById('btn-recent').addEventListener('click', () => loadRecentNotes());
 
@@ -888,6 +888,7 @@ function openEditor(note) {
 
     document.getElementById('btn-delete-note').addEventListener('click', () => {
       showConfirm('Mover para lixeira?', async () => {
+        clearTimeout(saveTimeout);
         try {
           await api.trashNote(note.id);
           showToast('Nota movida para lixeira', 'success');
@@ -960,9 +961,11 @@ function getChips(containerId) {
 }
 
 async function saveNote(silent = false) {
-  const title = document.getElementById('note-title')?.value.trim();
+  const titleEl = document.getElementById('note-title');
   const contentEl = document.getElementById('note-content');
-  const content = contentEl ? htmlToMarkdown(contentEl.innerHTML) : '';
+  if (!titleEl || !contentEl) return;
+  const title = titleEl.value.trim();
+  const content = htmlToMarkdown(contentEl.innerHTML);
   const category = getChips('category-chips')[0] || null;
   const tags = getChips('tag-chips');
 

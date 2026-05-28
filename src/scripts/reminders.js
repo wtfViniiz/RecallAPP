@@ -107,7 +107,13 @@ async function loadReminders(append = false) {
   }
   filter.offset = remindersOffset;
 
-  const result = await api.getReminders(filter);
+  let result;
+  try {
+    result = await api.getReminders(filter);
+  } catch (err) {
+    showToast('Erro ao carregar lembretes', 'error');
+    return;
+  }
   const reminders = result.items;
   const total = result.total;
   const list = document.getElementById('reminders-list');
@@ -238,7 +244,12 @@ async function openReminderForm(reminder) {
   if (reminder) {
     document.getElementById('btn-delete-reminder').addEventListener('click', () => {
       showConfirm('Excluir este lembrete?', async () => {
-        await api.deleteReminder(reminder.id);
+        try {
+          await api.deleteReminder(reminder.id);
+          showToast('Lembrete excluido', 'success');
+        } catch (err) {
+          showToast('Erro ao excluir', 'error');
+        }
         showToast('Lembrete excluido', 'success');
         renderRemindersList();
       });
@@ -309,10 +320,10 @@ async function saveReminder() {
   try {
     await api.createReminder(input);
     showToast('Lembrete criado', 'success');
+    renderRemindersList();
   } catch (e) {
     showToast('Erro ao criar lembrete', 'error');
   }
-  renderRemindersList();
 }
 
 async function renderCalendarView() {
