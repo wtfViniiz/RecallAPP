@@ -96,13 +96,7 @@ export function showConfirm(message, onConfirm) {
   toast.appendChild(msg);
   toast.appendChild(actions);
   container.appendChild(toast);
-
-  setTimeout(() => {
-    if (toast.parentNode) {
-      toast.style.animation = 'slideIn 0.2s ease-out reverse';
-      setTimeout(() => toast.remove(), 200);
-    }
-  }, 8000);
+  // Confirm toasts do not auto-dismiss — user must click Confirm or Cancel
 }
 
 // Lightweight markdown renderer
@@ -124,9 +118,10 @@ export function renderMarkdown(text) {
 
   // Extract code blocks before processing to preserve their content
   const codeBlocks = [];
-  html = html.replace(/```([\s\S]*?)```/g, (_, code) => {
+  html = html.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
     const placeholder = `__CODEBLOCK_${codeBlocks.length}__`;
-    codeBlocks.push(`<pre><code>${code}</code></pre>`);
+    const langAttr = lang ? ` class="language-${lang}"` : '';
+    codeBlocks.push(`<pre><code${langAttr}>${code}</code></pre>`);
     return placeholder;
   });
 
@@ -209,9 +204,19 @@ export function htmlToMarkdown(html) {
   md = md.replace(/<h1>([\s\S]*?)<\/h1>/gi, '# $1\n');
   md = md.replace(/<h2>([\s\S]*?)<\/h2>/gi, '## $1\n');
   md = md.replace(/<h3>([\s\S]*?)<\/h3>/gi, '### $1\n');
-  // Blockquote
-  md = md.replace(/<blockquote>([\s\S]*?)<\/blockquote>/gi, '> $1\n');
-  // List items
+  // Blockquote - add > prefix to each line
+  md = md.replace(/<blockquote>([\s\S]*?)<\/blockquote>/gi, (_, content) => {
+    return content.split('\n').map(line => `> ${line}`).join('\n') + '\n';
+  });
+  // Lists - wrap in proper markers
+  md = md.replace(/<ul>([\s\S]*?)<\/ul>/gi, '$1');
+  md = md.replace(/<ol>([\s\S]*?)<\/ol>/gi, (_, items) => {
+    let idx = 0;
+    return items.replace(/<li>([\s\S]*?)<\/li>/gi, (__ , item) => {
+      idx++;
+      return `${idx}. ${item}\n`;
+    });
+  });
   md = md.replace(/<li>([\s\S]*?)<\/li>/gi, '- $1\n');
   // Links
   md = md.replace(/<a[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi, '[$2]($1)');
@@ -245,10 +250,7 @@ export function htmlToMarkdown(html) {
 
 export function markdownToHtml(md) {
   if (!md) return '';
-  return renderMarkdown(md)
-    .replace(/<br\s*\/?>/gi, '<br>')
-    .replace(/<h([1-3])>/gi, '<h$1>')
-    .replace(/<\/h[1-3]>/gi, '</h$1>');
+  return renderMarkdown(md);
 }
 
 // Predefined categories and tags

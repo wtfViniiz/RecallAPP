@@ -88,8 +88,10 @@ pub fn update_note(app: AppHandle, cache: State<'_, NoteCache>, input: UpdateNot
     }
 
     let note = cache.get_note(&app, &input.id).ok_or("Nota nao encontrada")?;
-    // Save version snapshot before updating
-    let _ = storage::save_note_version(&app, &note);
+    // Save version snapshot before updating (non-fatal)
+    if let Err(e) = storage::save_note_version(&app, &note) {
+        eprintln!("[Recall] Aviso: falha ao salvar versao: {}", e);
+    }
     let mut note = note;
     if let Some(title) = input.title {
         note.title = title;
@@ -408,6 +410,7 @@ pub fn save_image(
 ) -> Result<String, String> {
     use base64::Engine;
 
+    validate_id(&note_id)?;
     const MAX_IMAGE_SIZE: usize = 20 * 1024 * 1024; // 20MB encoded
     if base64_data.len() > MAX_IMAGE_SIZE {
         return Err("Imagem excede 20MB".to_string());

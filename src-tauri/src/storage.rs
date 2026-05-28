@@ -12,8 +12,13 @@ fn data_dir(app_handle: &tauri::AppHandle) -> PathBuf {
     let dir = match app_handle.path().app_data_dir() {
         Ok(path) => path.join("data"),
         Err(e) => {
-            eprintln!("[Recall] Erro ao obter diretorio de dados: {}. Usando fallback.", e);
-            PathBuf::from(".").join("data")
+            let fallback = std::env::var("LOCALAPPDATA")
+                .or_else(|_| std::env::var("XDG_DATA_HOME"))
+                .map(PathBuf::from)
+                .unwrap_or_else(|_| app_handle.path().home_dir().unwrap_or_else(|_| PathBuf::from(".")))
+                .join("Recall").join("data");
+            eprintln!("[Recall] Erro ao obter diretorio de dados: {}. Usando fallback: {:?}", e, fallback);
+            fallback
         }
     };
     DIR_INIT.call_once(|| {

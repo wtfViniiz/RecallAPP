@@ -1,8 +1,19 @@
 use crate::cache::NoteCache;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Datelike, Timelike, Utc};
 use std::panic::catch_unwind;
 use std::sync::Arc;
 use tauri::{AppHandle, Manager};
+
+fn days_in_month(year: i32, month: u32) -> u32 {
+    let next_year = if month == 12 { year + 1 } else { year };
+    let next_month = if month == 12 { 1 } else { month + 1 };
+    let first_of_next = chrono::NaiveDate::from_ymd_opt(next_year, next_month, 1);
+    let first_of_current = chrono::NaiveDate::from_ymd_opt(year, month, 1);
+    match (first_of_current, first_of_next) {
+        (Some(cur), Some(next)) => (next - cur).num_days() as u32,
+        _ => 30,
+    }
+}
 
 pub fn start_scheduler(app: AppHandle, cache: NoteCache) {
     let app = Arc::new(app);
@@ -59,7 +70,16 @@ fn check_and_fire(app: &AppHandle, cache: &NoteCache) {
                 let next = match repeat.as_str() {
                     "daily" => trigger + chrono::Duration::days(1),
                     "weekly" => trigger + chrono::Duration::weeks(1),
-                    "monthly" => trigger + chrono::Duration::days(30),
+                    "monthly" => {
+                        let months = trigger.month();
+                        let years = trigger.year() + ((months + 12 - 1) / 12 - 1) as i32;
+                        let new_month = ((months) % 12) + 1;
+                        let day = trigger.day().min(days_in_month(years, new_month));
+                        chrono::NaiveDate::from_ymd_opt(years, new_month, day)
+                            .and_then(|d| d.and_hms_opt(trigger.hour(), trigger.minute(), trigger.second()))
+                            .map(|dt| chrono::DateTime::from_naive_utc_and_offset(dt, *trigger.offset()))
+                            .unwrap_or(trigger + chrono::Duration::days(30))
+                    },
                     _ => {
                         reminder.status = "fired".to_string();
                         let _ = cache.save_reminder(app, &reminder);

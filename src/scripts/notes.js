@@ -3,6 +3,7 @@ import { formatDate, formatDateTime, escapeHtml, showToast, showConfirm, renderM
 
 let currentView = 'list';
 let currentNote = null;
+let draggedCard = null;
 let allCategories = [...DEFAULT_CATEGORIES];
 let allTags = [...DEFAULT_TAGS];
 let saveTimeout = null;
@@ -103,8 +104,6 @@ function renderNoteCards(notes, searchQuery) {
 }
 
 function attachNoteCardHandlers(list, notes) {
-  let draggedCard = null;
-
   list.querySelectorAll('.card').forEach(card => {
     card.addEventListener('click', (e) => {
       if (e.target.closest('.delete-note-btn')) return;
@@ -194,7 +193,13 @@ async function loadNotes(append = false) {
   }
   filter.offset = notesOffset;
 
-  const result = await api.getNotes(filter);
+  let result;
+  try {
+    result = await api.getNotes(filter);
+  } catch (err) {
+    showToast('Erro ao carregar notas', 'error');
+    return;
+  }
   const notes = result.items;
   const total = result.total;
   const list = document.getElementById('notes-list');
@@ -225,7 +230,13 @@ async function loadNotes(append = false) {
 }
 
 async function loadRecentNotes() {
-  const result = await api.getNotes({ limit: 10 });
+  let result;
+  try {
+    result = await api.getNotes({ limit: 10 });
+  } catch (err) {
+    showToast('Erro ao carregar notas recentes', 'error');
+    return;
+  }
   const recent = result.items;
   const list = document.getElementById('notes-list');
 
@@ -344,7 +355,7 @@ async function showTemplateSelector() {
       `).join('')}
       ${customTemplates.map(tpl => `
         <div class="template-card" data-template="custom:${tpl.id}">
-          <div class="template-icon">${tpl.icon || '&#128221;'}</div>
+          <div class="template-icon">${escapeHtml(tpl.icon || '\u{1F4DD}')}</div>
           <div class="template-name">${escapeHtml(tpl.name)}</div>
           <button class="btn-icon delete-template-btn" data-id="${tpl.id}" title="Excluir template" style="position:absolute;top:4px;right:4px;font-size:12px;">&times;</button>
         </div>
