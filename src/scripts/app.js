@@ -5,6 +5,7 @@ import { api } from './api.js';
 
 const tabs = document.querySelectorAll('.tab');
 const views = document.querySelectorAll('.view');
+let isPinned = false;
 
 async function applyTheme() {
   try {
@@ -14,6 +15,19 @@ async function applyTheme() {
     console.error('Failed to load config:', e);
   }
 }
+
+// Pin window button
+const pinBtn = document.getElementById('pin-window');
+pinBtn.addEventListener('click', async () => {
+  isPinned = !isPinned;
+  pinBtn.classList.toggle('active', isPinned);
+  pinBtn.innerHTML = isPinned ? '&#128204;' : '&#128204;';
+  try {
+    await api.setAlwaysOnTop(isPinned);
+  } catch (e) {
+    console.error('Failed to set always on top:', e);
+  }
+});
 
 tabs.forEach(tab => {
   tab.addEventListener('click', () => {
@@ -29,9 +43,9 @@ tabs.forEach(tab => {
   });
 });
 
-// Escape to hide window
+// Escape to hide window (only if not pinned)
 document.addEventListener('keydown', async (e) => {
-  if (e.key === 'Escape') {
+  if (e.key === 'Escape' && !isPinned) {
     try {
       await window.__TAURI_INTERNALS__.invoke('plugin:window|set_visible', { visible: false });
     } catch (err) {
@@ -40,10 +54,10 @@ document.addEventListener('keydown', async (e) => {
   }
 });
 
-// Click outside to hide
+// Click outside to hide (only if not pinned)
 document.addEventListener('mousedown', async (e) => {
   const appEl = document.getElementById('app');
-  if (!appEl.contains(e.target)) {
+  if (!appEl.contains(e.target) && !isPinned) {
     try {
       await window.__TAURI_INTERNALS__.invoke('plugin:window|set_visible', { visible: false });
     } catch (err) {

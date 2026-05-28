@@ -19,16 +19,45 @@ body {
   height: 100vh;
 }
 
+#header-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 12px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  -webkit-app-region: drag;
+}
+
+#header-bar .pin-btn {
+  -webkit-app-region: no-drag;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  color: var(--text-secondary);
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+#header-bar .pin-btn:hover {
+  color: var(--accent);
+  background: var(--bg-primary);
+}
+
+#header-bar .pin-btn.active {
+  color: var(--accent);
+}
+
 #tabs {
   display: flex;
   border-bottom: 1px solid var(--border);
   background: var(--bg-secondary);
-  -webkit-app-region: drag;
   padding: 0 8px;
 }
 
 .tab {
-  -webkit-app-region: no-drag;
   background: none;
   border: none;
   color: var(--text-secondary);

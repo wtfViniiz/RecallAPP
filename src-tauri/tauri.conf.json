@@ -10,8 +10,8 @@
       {
         "label": "main",
         "title": "Recall",
-        "width": 400,
-        "height": 600,
+        "width": 500,
+        "height": 650,
         "resizable": false,
         "decorations": false,
         "transparent": true,
@@ -19,10 +19,6 @@
         "skipTaskbar": true
       }
     ],
-    "trayIcon": {
-      "iconPath": "icons/icon.png",
-      "iconAsTemplate": true
-    },
     "security": {
       "csp": null
     }

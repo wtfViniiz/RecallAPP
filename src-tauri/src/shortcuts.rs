@@ -14,7 +14,8 @@ pub fn register_shortcut(app: &tauri::App) -> Result<(), Box<dyn std::error::Err
         }
     };
 
-    app.handle().plugin(
+    // Try to register the plugin, but don't fail if it's already registered
+    let _ = app.handle().plugin(
         tauri_plugin_global_shortcut::Builder::new()
             .with_handler(move |app, _shortcut, event| {
                 if event.state == tauri_plugin_global_shortcut::ShortcutState::Pressed {
@@ -29,14 +30,12 @@ pub fn register_shortcut(app: &tauri::App) -> Result<(), Box<dyn std::error::Err
                 }
             })
             .build(),
-    )?;
+    );
 
-    // Try to register, but don't panic if already registered
+    // Try to register the shortcut, but don't panic if already registered
     match app.global_shortcut().on_shortcut(shortcut, |_, _, _| {}) {
-        Ok(_) => {}
-        Err(e) => {
-            eprintln!("Warning: Could not register shortcut '{}': {}", shortcut_str, e);
-        }
+        Ok(_) => println!("Shortcut registered: {}", shortcut_str),
+        Err(e) => eprintln!("Warning: Could not register shortcut '{}': {}", shortcut_str, e),
     }
 
     Ok(())

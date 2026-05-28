@@ -25,4 +25,10 @@ export const api = {
   // Helpers
   getCategories: () => invoke('get_categories'),
   getTags: () => invoke('get_tags'),
+
+  // Window
+  setAlwaysOnTop: (pinned) => invoke('set_always_on_top', { pinned }),
+
+  // Images
+  saveImage: (data, noteId) => invoke('save_image', { data, noteId }),
 };

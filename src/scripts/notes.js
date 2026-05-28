@@ -108,7 +108,8 @@ function openEditor(note) {
     <div class="header">
       <button class="btn btn-secondary" id="btn-back">Voltar</button>
       <div class="header-actions">
-        ${note ? `<button class="btn btn-secondary" id="btn-pin-note" title="Fixar">${note.pinned ? 'Desfixar' : 'Fixar'}</button>` : ''}
+        <button class="btn btn-secondary" id="btn-copy-all" title="Copiar tudo">&#128203;</button>
+        ${note ? `<button class="btn btn-secondary" id="btn-pin-note" title="Fixar">${note.pinned ? '&#9733;' : '&#9734;'}</button>` : ''}
         ${note ? `<button class="btn btn-danger" id="btn-delete-note">Excluir</button>` : ''}
       </div>
     </div>
@@ -134,7 +135,10 @@ function openEditor(note) {
           </datalist>
         </div>
       </div>
-      <textarea id="note-content" placeholder="Comece a escrever...">${note ? escapeHtml(note.content) : ''}</textarea>
+      <div class="editor-container">
+        <textarea id="note-content" placeholder="Comece a escrever... (Ctrl+V para colar imagens)">${note ? escapeHtml(note.content) : ''}</textarea>
+        <div class="line-actions" id="line-actions"></div>
+      </div>
     </div>
     ${note ? `
       <div class="timestamp">Criada: ${formatDateTime(note.created_at)}</div>
@@ -163,6 +167,53 @@ function openEditor(note) {
   titleInput.addEventListener('input', autoSave);
   contentInput.addEventListener('input', autoSave);
 
+  // Image paste support
+  contentInput.addEventListener('paste', async (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (!file) continue;
+
+        const reader = new FileReader();
+        reader.onload = async () => {
+          const data = new Uint8Array(reader.result);
+          try {
+            const noteId = currentNote?.id || 'new';
+            const path = await api.saveImage(Array.from(data), noteId);
+            // Insert image reference at cursor position
+            const cursor = contentInput.selectionStart;
+            const text = contentInput.value;
+            const imgTag = `\n![Imagem](${path})\n`;
+            contentInput.value = text.slice(0, cursor) + imgTag + text.slice(cursor);
+            showToast('Imagem colada', 'success');
+            autoSave();
+          } catch (err) {
+            showToast('Erro ao colar imagem: ' + err, 'error');
+          }
+        };
+        reader.readAsArrayBuffer(file);
+        return;
+      }
+    }
+  });
+
+  // Line hover actions (copy line)
+  contentInput.addEventListener('mousemove', (e) => {
+    const rect = contentInput.getBoundingClientRect();
+    const lineHeight = 22; // Approximate line height
+    const lineIndex = Math.floor((e.clientY - rect.top + contentInput.scrollTop) / lineHeight);
+    showLineActions(contentInput, lineIndex, e.clientY - rect.top);
+  });
+
+  contentInput.addEventListener('mouseleave', () => {
+    const actions = document.getElementById('line-actions');
+    if (actions) actions.innerHTML = '';
+  });
+
   // Back button
   document.getElementById('btn-back').addEventListener('click', () => {
     clearTimeout(saveTimeout);
@@ -170,6 +221,19 @@ function openEditor(note) {
       currentView = 'list';
       renderNotesList();
     });
+  });
+
+  // Copy all button
+  document.getElementById('btn-copy-all').addEventListener('click', async () => {
+    const content = contentInput.value;
+    const title = titleInput.value;
+    const fullText = title ? `${title}\n\n${content}` : content;
+    try {
+      await navigator.clipboard.writeText(fullText);
+      showToast('Nota copiada para a area de transferencia', 'success');
+    } catch (e) {
+      showToast('Erro ao copiar', 'error');
+    }
   });
 
   // Pin button
@@ -199,6 +263,30 @@ function openEditor(note) {
     if (e.ctrlKey && e.key === 's' && currentView === 'editor') {
       e.preventDefault();
       saveNote(false);
+    }
+  });
+}
+
+function showLineActions(textarea, lineIndex, y) {
+  const actions = document.getElementById('line-actions');
+  if (!actions) return;
+
+  const lines = textarea.value.split('\n');
+  if (lineIndex >= lines.length || !lines[lineIndex].trim()) {
+    actions.innerHTML = '';
+    return;
+  }
+
+  actions.innerHTML = `<button class="line-copy-btn" title="Copiar linha">&#128203;</button>`;
+  actions.style.top = `${y - 10}px`;
+
+  const copyBtn = actions.querySelector('.line-copy-btn');
+  copyBtn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(lines[lineIndex]);
+      showToast('Linha copiada', 'success');
+    } catch (e) {
+      showToast('Erro ao copiar', 'error');
     }
   });
 }

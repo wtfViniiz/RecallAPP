@@ -49,6 +49,8 @@ fn main() {
             commands::update_config,
             commands::get_categories,
             commands::get_tags,
+            commands::set_always_on_top,
+            commands::save_image,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

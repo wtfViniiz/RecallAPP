@@ -1,7 +1,8 @@
 use crate::models::*;
 use crate::storage;
 use chrono::Utc;
-use tauri::AppHandle;
+use std::fs;
+use tauri::{AppHandle, Manager};
 use uuid::Uuid;
 
 #[tauri::command]
@@ -139,4 +140,29 @@ pub fn get_categories(app: AppHandle) -> Vec<String> {
 #[tauri::command]
 pub fn get_tags(app: AppHandle) -> Vec<String> {
     storage::get_tags(&app)
+}
+
+#[tauri::command]
+pub fn set_always_on_top(app: AppHandle, pinned: bool) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("main") {
+        window.set_always_on_top(pinned).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn save_image(app: AppHandle, data: Vec<u8>, note_id: String) -> Result<String, String> {
+    let dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?
+        .join("data")
+        .join("images");
+    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+
+    let filename = format!("{}_{}.png", note_id, Uuid::new_v4());
+    let path = dir.join(&filename);
+    fs::write(&path, &data).map_err(|e| e.to_string())?;
+
+    Ok(path.to_string_lossy().to_string())
 }

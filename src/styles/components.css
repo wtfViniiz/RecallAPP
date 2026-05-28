@@ -419,3 +419,48 @@
   outline: none;
   border-bottom-color: var(--accent);
 }
+
+/* Editor container */
+.editor-container {
+  position: relative;
+  flex: 1;
+  display: flex;
+}
+
+.editor-container textarea {
+  flex: 1;
+  border: none;
+  background: transparent;
+  resize: none;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  font-family: 'Consolas', 'Courier New', monospace;
+}
+
+.editor-container textarea:focus {
+  outline: none;
+}
+
+/* Line actions (copy button on hover) */
+.line-actions {
+  position: absolute;
+  right: 0;
+  pointer-events: auto;
+}
+
+.line-copy-btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-secondary);
+  transition: all 0.15s;
+}
+
+.line-copy-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
