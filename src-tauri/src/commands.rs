@@ -137,10 +137,17 @@ pub fn restore_note(app: AppHandle, cache: State<'_, NoteCache>, id: String) -> 
 pub fn empty_trash(app: AppHandle, cache: State<'_, NoteCache>) -> Result<u32, String> {
     let notes = cache.list_trashed_notes(&app);
     let count = notes.len() as u32;
+    let mut errors = Vec::new();
     for note in notes {
-        cache.delete_note(&app, &note.id)?;
+        if let Err(e) = cache.delete_note(&app, &note.id) {
+            errors.push(format!("{}: {}", note.id, e));
+        }
     }
-    Ok(count)
+    if errors.is_empty() {
+        Ok(count)
+    } else {
+        Err(format!("{} notas deletadas, {} erros: {}", count - errors.len() as u32, errors.len(), errors.join("; ")))
+    }
 }
 
 #[tauri::command]
@@ -398,7 +405,22 @@ pub fn save_image(
         .join("images");
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
 
-    let filename = format!("{}_{}.png", safe_id, Uuid::new_v4());
+    // Detect format from magic bytes
+    let ext = if data.len() >= 4 && data[0..4] == [0x89, 0x50, 0x4E, 0x47] {
+        "png"
+    } else if data.len() >= 2 && data[0..2] == [0xFF, 0xD8] {
+        "jpg"
+    } else if data.len() >= 4 && data[0..4] == [0x47, 0x49, 0x46, 0x38] {
+        "gif"
+    } else if data.len() >= 4 && data[0..4] == [0x52, 0x49, 0x46, 0x46] {
+        "webp"
+    } else if data.len() >= 4 && data[0..4] == [0x3C, 0x73, 0x76, 0x67] {
+        "svg"
+    } else {
+        "png"
+    };
+
+    let filename = format!("{}_{}.{}", safe_id, Uuid::new_v4(), ext);
     let path = dir.join(&filename);
     fs::write(&path, &data).map_err(|e| e.to_string())?;
 

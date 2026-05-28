@@ -74,20 +74,28 @@ function attachReminderHandlers(list, reminders) {
   list.querySelectorAll('[data-dismiss]').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
-      await api.dismissReminder(btn.dataset.dismiss);
-      showToast('Lembrete dispensado', 'success');
-      await loadReminders();
+      try {
+        await api.dismissReminder(btn.dataset.dismiss);
+        showToast('Lembrete dispensado', 'success');
+        await loadReminders();
+      } catch (err) {
+        showToast('Erro ao dispensar lembrete', 'error');
+      }
     });
   });
 
   list.querySelectorAll('[data-snooze]').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
-      const id = btn.dataset.snooze;
-      const minutes = parseInt(btn.dataset.minutes);
-      await api.snoozeReminder(id, minutes);
-      showToast(`Lembrete adiado ${minutes} minutos`, 'success');
-      await loadReminders();
+      try {
+        const id = btn.dataset.snooze;
+        const minutes = parseInt(btn.dataset.minutes);
+        await api.snoozeReminder(id, minutes);
+        showToast(`Lembrete adiado ${minutes} minutos`, 'success');
+        await loadReminders();
+      } catch (err) {
+        showToast('Erro ao adiar lembrete', 'error');
+      }
     });
   });
 }

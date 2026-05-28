@@ -36,7 +36,11 @@ pub fn ensure_dirs(data_dir: &Path) {
 fn atomic_write(path: &std::path::Path, content: &str) -> Result<(), String> {
     let tmp_path = path.with_extension("json.tmp");
     fs::write(&tmp_path, content).map_err(|e| e.to_string())?;
-    fs::rename(&tmp_path, path).map_err(|e| e.to_string())?;
+    if let Err(e) = fs::rename(&tmp_path, path) {
+        // Clean up orphaned .tmp file on rename failure
+        let _ = fs::remove_file(&tmp_path);
+        return Err(e.to_string());
+    }
     Ok(())
 }
 

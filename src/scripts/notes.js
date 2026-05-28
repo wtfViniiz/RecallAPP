@@ -114,9 +114,13 @@ function attachNoteCardHandlers(list, notes) {
   list.querySelectorAll('.delete-note-btn').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
-      await api.trashNote(btn.dataset.id);
-      showToast('Nota movida para lixeira', 'success');
-      await loadNotes();
+      try {
+        await api.trashNote(btn.dataset.id);
+        showToast('Nota movida para lixeira', 'success');
+        await loadNotes();
+      } catch (err) {
+        showToast('Erro ao mover para lixeira', 'error');
+      }
     });
   });
 }
@@ -230,9 +234,13 @@ async function renderTrashList() {
   list.querySelectorAll('[data-restore]').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
-      await api.restoreNote(btn.dataset.restore);
-      showToast('Nota restaurada', 'success');
-      renderTrashList();
+      try {
+        await api.restoreNote(btn.dataset.restore);
+        showToast('Nota restaurada', 'success');
+        renderTrashList();
+      } catch (err) {
+        showToast('Erro ao restaurar nota', 'error');
+      }
     });
   });
 
