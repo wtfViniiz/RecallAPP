@@ -52,6 +52,7 @@ fn main() {
             commands::get_tags,
             commands::set_always_on_top,
             commands::save_image,
+            commands::update_shortcut,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -73,6 +73,13 @@ export async function initSettings() {
       window_height: config.window_height,
     });
 
+    // Update the global shortcut
+    try {
+      await window.__TAURI_INTERNALS__.invoke('update_shortcut', { shortcutStr: shortcut });
+    } catch (e) {
+      console.error('Failed to update shortcut:', e);
+    }
+
     document.body.className = theme;
     showToast('Configuracoes salvas', 'success');
   });
