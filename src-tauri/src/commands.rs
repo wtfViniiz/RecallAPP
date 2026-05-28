@@ -279,7 +279,25 @@ pub fn get_config(app: AppHandle) -> Config {
 }
 
 #[tauri::command]
+pub fn get_app_version(app: AppHandle) -> String {
+    app.package_info().version.to_string()
+}
+
+#[tauri::command]
 pub fn update_config(app: AppHandle, input: Config) -> Result<Config, String> {
+    let valid_themes = ["dark", "light"];
+    if !valid_themes.contains(&input.theme.as_str()) {
+        return Err(format!("Tema invalido: {}. Use: {:?}", input.theme, valid_themes));
+    }
+    if input.window_width < 300 || input.window_width > 3840 {
+        return Err("Largura da janela deve estar entre 300 e 3840".to_string());
+    }
+    if input.window_height < 300 || input.window_height > 2160 {
+        return Err("Altura da janela deve estar entre 300 e 2160".to_string());
+    }
+    if input.shortcut.is_empty() || input.shortcut.len() > 50 {
+        return Err("Atalho invalido".to_string());
+    }
     storage::save_config(&app, &input)?;
     Ok(input)
 }

@@ -93,7 +93,9 @@ pub fn list_notes_at(data_dir: &Path, filter: Option<NoteFilter>) -> Vec<Note> {
             }
             let content = fs::read_to_string(entry.path()).ok()?;
             let mut note: Note = serde_json::from_str(&content).ok()?;
-            migrate_note(&mut note);
+            if migrate_note(&mut note) {
+                let _ = save_note_at(data_dir, &note);
+            }
             Some(note)
         })
         .collect();
@@ -151,7 +153,9 @@ pub fn list_all_notes_at(data_dir: &Path) -> Vec<Note> {
             }
             let content = fs::read_to_string(entry.path()).ok()?;
             let mut note: Note = serde_json::from_str(&content).ok()?;
-            migrate_note(&mut note);
+            if migrate_note(&mut note) {
+                let _ = save_note_at(data_dir, &note);
+            }
             Some(note)
         })
         .collect()
@@ -170,7 +174,9 @@ pub fn list_trashed_notes_at(data_dir: &Path) -> Vec<Note> {
             }
             let content = fs::read_to_string(entry.path()).ok()?;
             let mut note: Note = serde_json::from_str(&content).ok()?;
-            migrate_note(&mut note);
+            if migrate_note(&mut note) {
+                let _ = save_note_at(data_dir, &note);
+            }
             Some(note)
         })
         .filter(|n| n.trashed)
@@ -188,9 +194,11 @@ pub fn list_trashed_notes_at(data_dir: &Path) -> Vec<Note> {
 
 pub fn get_note_at(data_dir: &Path, id: &str) -> Option<Note> {
     let path = data_dir.join("notes").join(format!("{}.json", id));
-    let content = fs::read_to_string(path).ok()?;
+    let content = fs::read_to_string(&path).ok()?;
     let mut note: Note = serde_json::from_str(&content).ok()?;
-    migrate_note(&mut note);
+    if migrate_note(&mut note) {
+        let _ = save_note_at(data_dir, &note);
+    }
     Some(note)
 }
 
@@ -220,7 +228,9 @@ pub fn list_reminders_at(data_dir: &Path, status: Option<String>) -> Vec<Reminde
             }
             let content = fs::read_to_string(entry.path()).ok()?;
             let mut reminder: Reminder = serde_json::from_str(&content).ok()?;
-            migrate_reminder(&mut reminder);
+            if migrate_reminder(&mut reminder) {
+                let _ = save_reminder_at(data_dir, &reminder);
+            }
             Some(reminder)
         })
         .collect();
@@ -235,9 +245,11 @@ pub fn list_reminders_at(data_dir: &Path, status: Option<String>) -> Vec<Reminde
 
 pub fn get_reminder_at(data_dir: &Path, id: &str) -> Option<Reminder> {
     let path = data_dir.join("reminders").join(format!("{}.json", id));
-    let content = fs::read_to_string(path).ok()?;
+    let content = fs::read_to_string(&path).ok()?;
     let mut reminder: Reminder = serde_json::from_str(&content).ok()?;
-    migrate_reminder(&mut reminder);
+    if migrate_reminder(&mut reminder) {
+        let _ = save_reminder_at(data_dir, &reminder);
+    }
     Some(reminder)
 }
 
@@ -311,16 +323,20 @@ pub fn get_tags(app_handle: &tauri::AppHandle) -> Vec<String> {
 
 // --- Migration ---
 
-fn migrate_note(note: &mut Note) {
+fn migrate_note(note: &mut Note) -> bool {
+    let original = note.schema_version;
     if note.schema_version < 1 {
         note.schema_version = 1;
     }
+    note.schema_version != original
 }
 
-fn migrate_reminder(reminder: &mut Reminder) {
+fn migrate_reminder(reminder: &mut Reminder) -> bool {
+    let original = reminder.schema_version;
     if reminder.schema_version < 1 {
         reminder.schema_version = 1;
     }
+    reminder.schema_version != original
 }
 
 #[cfg(test)]

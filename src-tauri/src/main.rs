@@ -49,6 +49,7 @@ fn main() {
             commands::dismiss_reminder,
             commands::snooze_reminder,
             commands::get_config,
+            commands::get_app_version,
             commands::update_config,
             commands::get_categories,
             commands::get_tags,

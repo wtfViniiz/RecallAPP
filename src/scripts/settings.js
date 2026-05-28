@@ -4,6 +4,7 @@ import { showToast } from './utils.js';
 export async function initSettings() {
   const container = document.getElementById('view-settings');
   const config = await api.getConfig();
+  const version = await api.getAppVersion().catch(() => '0.1.0');
 
   container.innerHTML = `
     <h3 style="margin-bottom: 16px;">Configuracoes</h3>
@@ -42,7 +43,7 @@ export async function initSettings() {
     <div style="margin-top: 24px;">
       <button class="btn btn-primary" id="btn-save-settings">Salvar</button>
     </div>
-    <div class="timestamp" style="margin-top: 16px;">Versao: 0.1.0</div>
+    <div class="timestamp" style="margin-top: 16px;">Versao: ${version}</div>
   `;
 
   // Theme toggle live preview

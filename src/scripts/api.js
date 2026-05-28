@@ -24,6 +24,7 @@ export const api = {
 
   // Config
   getConfig: () => invoke('get_config'),
+  getAppVersion: () => invoke('get_app_version'),
   updateConfig: (input) => invoke('update_config', { input }),
   updateShortcut: (shortcutStr) => invoke('update_shortcut', { shortcutStr }),
 

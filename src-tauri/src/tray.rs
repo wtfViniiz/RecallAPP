@@ -17,8 +17,13 @@ pub fn setup_tray(app: &App) -> Result<(), Box<dyn std::error::Error>> {
         &[&open_i, &new_note_i, &new_reminder_i, &settings_i, &quit_i],
     )?;
 
+    let icon = app
+        .default_window_icon()
+        .ok_or("Icon not found")?
+        .clone();
+
     let _tray = TrayIconBuilder::new()
-        .icon(app.default_window_icon().unwrap().clone())
+        .icon(icon)
         .tooltip("Recall")
         .menu(&menu)
         .show_menu_on_left_click(false)
