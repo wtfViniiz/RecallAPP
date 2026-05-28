@@ -374,4 +374,207 @@ mod tests {
         assert_eq!(input.status, Some("dismissed".to_string()));
         assert!(input.description.is_none());
     }
+
+    #[test]
+    fn test_update_note_position_only() {
+        let input = UpdateNote {
+            id: "note-1".to_string(),
+            title: None,
+            content: None,
+            category: None,
+            tags: None,
+            pinned: None,
+            position: Some(10),
+        };
+
+        assert_eq!(input.id, "note-1");
+        assert_eq!(input.position, Some(10));
+        assert!(input.title.is_none());
+        assert!(input.content.is_none());
+        assert!(input.category.is_none());
+        assert!(input.tags.is_none());
+        assert!(input.pinned.is_none());
+    }
+
+    #[test]
+    fn test_update_note_all_none_except_id() {
+        let input = UpdateNote {
+            id: "note-1".to_string(),
+            title: None,
+            content: None,
+            category: None,
+            tags: None,
+            pinned: None,
+            position: None,
+        };
+
+        assert_eq!(input.id, "note-1");
+        assert!(input.title.is_none());
+        assert!(input.content.is_none());
+        assert!(input.category.is_none());
+        assert!(input.tags.is_none());
+        assert!(input.pinned.is_none());
+        assert!(input.position.is_none());
+    }
+
+    #[test]
+    fn test_note_version_serialization_roundtrip() {
+        let version = NoteVersion {
+            id: "v-123".to_string(),
+            note_id: "n-456".to_string(),
+            title: "Version Title".to_string(),
+            content: "Version content with **markdown**".to_string(),
+            category: Some("Work".to_string()),
+            tags: vec!["tag1".to_string(), "tag2".to_string()],
+            created_at: "2026-05-28T10:00:00Z".to_string(),
+        };
+
+        let json = serde_json::to_string(&version).unwrap();
+        let parsed: NoteVersion = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(parsed.id, "v-123");
+        assert_eq!(parsed.note_id, "n-456");
+        assert_eq!(parsed.title, "Version Title");
+        assert_eq!(parsed.content, "Version content with **markdown**");
+        assert_eq!(parsed.category, Some("Work".to_string()));
+        assert_eq!(parsed.tags.len(), 2);
+        assert_eq!(parsed.created_at, "2026-05-28T10:00:00Z");
+    }
+
+    #[test]
+    fn test_note_version_with_empty_fields() {
+        let version = NoteVersion {
+            id: "v-empty".to_string(),
+            note_id: "n-1".to_string(),
+            title: "".to_string(),
+            content: "".to_string(),
+            category: None,
+            tags: vec![],
+            created_at: "2026-05-28T10:00:00Z".to_string(),
+        };
+
+        let json = serde_json::to_string(&version).unwrap();
+        let parsed: NoteVersion = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(parsed.title, "");
+        assert_eq!(parsed.content, "");
+        assert!(parsed.category.is_none());
+        assert!(parsed.tags.is_empty());
+    }
+
+    #[test]
+    fn test_custom_template_serialization_roundtrip() {
+        let template = CustomTemplate {
+            id: "tpl-1".to_string(),
+            name: "Daily Standup".to_string(),
+            title: "Standup - {{date}}".to_string(),
+            content: "## Yesterday\n\n## Today\n\n## Blockers\n".to_string(),
+            icon: Some("calendar".to_string()),
+        };
+
+        let json = serde_json::to_string(&template).unwrap();
+        let parsed: CustomTemplate = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(parsed.id, "tpl-1");
+        assert_eq!(parsed.name, "Daily Standup");
+        assert_eq!(parsed.title, "Standup - {{date}}");
+        assert!(parsed.content.contains("Yesterday"));
+        assert_eq!(parsed.icon, Some("calendar".to_string()));
+    }
+
+    #[test]
+    fn test_custom_template_without_icon() {
+        let template = CustomTemplate {
+            id: "tpl-2".to_string(),
+            name: "Simple".to_string(),
+            title: "Simple Template".to_string(),
+            content: "Content".to_string(),
+            icon: None,
+        };
+
+        let json = serde_json::to_string(&template).unwrap();
+        let parsed: CustomTemplate = serde_json::from_str(&json).unwrap();
+
+        assert!(parsed.icon.is_none());
+    }
+
+    #[test]
+    fn test_custom_template_json_structure() {
+        let template = CustomTemplate {
+            id: "t1".to_string(),
+            name: "Test".to_string(),
+            title: "Title".to_string(),
+            content: "Body".to_string(),
+            icon: None,
+        };
+
+        let json = serde_json::to_string(&template).unwrap();
+        let value: serde_json::Value = serde_json::from_str(&json).unwrap();
+
+        assert!(value.is_object());
+        assert_eq!(value["id"].as_str().unwrap(), "t1");
+        assert_eq!(value["name"].as_str().unwrap(), "Test");
+        assert_eq!(value["title"].as_str().unwrap(), "Title");
+        assert_eq!(value["content"].as_str().unwrap(), "Body");
+        // icon should be null in JSON when None
+        assert!(value["icon"].is_null());
+    }
+
+    #[test]
+    fn test_note_version_json_structure() {
+        let version = NoteVersion {
+            id: "v1".to_string(),
+            note_id: "n1".to_string(),
+            title: "T".to_string(),
+            content: "C".to_string(),
+            category: None,
+            tags: vec![],
+            created_at: "2026-05-28T10:00:00Z".to_string(),
+        };
+
+        let json = serde_json::to_string(&version).unwrap();
+        let value: serde_json::Value = serde_json::from_str(&json).unwrap();
+
+        assert!(value.is_object());
+        assert_eq!(value["id"].as_str().unwrap(), "v1");
+        assert_eq!(value["note_id"].as_str().unwrap(), "n1");
+        assert!(value["tags"].is_array());
+        assert_eq!(value["tags"].as_array().unwrap().len(), 0);
+    }
+
+    #[test]
+    fn test_update_note_with_position_negative() {
+        let input = UpdateNote {
+            id: "note-1".to_string(),
+            title: None,
+            content: None,
+            category: None,
+            tags: None,
+            pinned: None,
+            position: Some(-1),
+        };
+        assert_eq!(input.position, Some(-1));
+    }
+
+    #[test]
+    fn test_note_with_position_zero() {
+        let note = Note {
+            id: "n1".to_string(),
+            title: "Zero".to_string(),
+            content: "".to_string(),
+            category: None,
+            tags: vec![],
+            pinned: false,
+            trashed: false,
+            trashed_at: None,
+            position: Some(0),
+            schema_version: 1,
+            created_at: "2026-05-28T10:00:00Z".to_string(),
+            updated_at: "2026-05-28T10:00:00Z".to_string(),
+        };
+
+        let json = serde_json::to_string(&note).unwrap();
+        let parsed: Note = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.position, Some(0));
+    }
 }
