@@ -64,20 +64,27 @@ export async function initSettings() {
     const autostart = document.getElementById('setting-autostart').checked;
     const check_updates = document.getElementById('setting-updates').checked;
 
-    await api.updateConfig({
-      theme,
-      shortcut,
-      autostart,
-      check_updates,
-      window_width: config.window_width,
-      window_height: config.window_height,
-    });
-
-    // Update the global shortcut
     try {
-      await window.__TAURI_INTERNALS__.invoke('update_shortcut', { shortcutStr: shortcut });
+      await api.updateShortcut(shortcut);
     } catch (e) {
       console.error('Failed to update shortcut:', e);
+      showToast('Atalho invalido ou ja em uso', 'error');
+      return;
+    }
+
+    try {
+      await api.updateConfig({
+        theme,
+        shortcut,
+        autostart,
+        check_updates,
+        window_width: config.window_width,
+        window_height: config.window_height,
+      });
+    } catch (e) {
+      console.error('Failed to save settings:', e);
+      showToast('Erro ao salvar configuracoes', 'error');
+      return;
     }
 
     document.body.className = theme;
@@ -134,13 +141,18 @@ function setupShortcutCapture() {
       return;
     }
 
+    const key = normalizeShortcutKey(e);
+    if (!key) {
+      return;
+    }
+
     // Build shortcut string
     const parts = [];
     if (e.ctrlKey) parts.push('Ctrl');
     if (e.altKey) parts.push('Alt');
     if (e.shiftKey) parts.push('Shift');
     if (e.metaKey) parts.push('Super');
-    parts.push(e.key.length === 1 ? e.key.toUpperCase() : e.key);
+    parts.push(key);
 
     const shortcut = parts.join('+');
     input.value = shortcut;
@@ -160,15 +172,119 @@ function setupShortcutCapture() {
   });
 }
 
+function normalizeShortcutKey(e) {
+  const code = e.code || '';
+  const supportedCodes = new Set([
+    'Backquote', 'Backslash', 'BracketLeft', 'BracketRight', 'Comma',
+    'Equal', 'Minus', 'Period', 'Quote', 'Semicolon', 'Slash',
+    'Backspace', 'CapsLock', 'Delete', 'End', 'Enter', 'Escape',
+    'Home', 'Insert', 'PageDown', 'PageUp', 'Pause', 'PrintScreen',
+    'ScrollLock', 'Space', 'Tab', 'ArrowDown', 'ArrowLeft',
+    'ArrowRight', 'ArrowUp', 'NumLock', 'NumpadAdd', 'NumpadDecimal',
+    'NumpadDivide', 'NumpadEnter', 'NumpadEqual', 'NumpadMultiply',
+    'NumpadSubtract',
+  ]);
+
+  if (/^Key[A-Z]$/.test(code) || /^Digit[0-9]$/.test(code) || /^Numpad[0-9]$/.test(code)) {
+    return code;
+  }
+
+  if (/^F([1-9]|1[0-9]|2[0-4])$/.test(code) || supportedCodes.has(code)) {
+    return code;
+  }
+
+  const keyAliases = {
+    ' ': 'Space',
+    Esc: 'Escape',
+    Del: 'Delete',
+    Up: 'ArrowUp',
+    Down: 'ArrowDown',
+    Left: 'ArrowLeft',
+    Right: 'ArrowRight',
+  };
+
+  if (keyAliases[e.key]) {
+    return keyAliases[e.key];
+  }
+
+  return e.key.length === 1 ? e.key.toUpperCase() : e.key;
+}
+
 function formatShortcut(shortcut) {
   if (!shortcut) return 'Nenhum';
-  return shortcut.split('+').map(part => {
-    switch (part.toLowerCase()) {
-      case 'ctrl': return 'Ctrl';
-      case 'alt': return 'Alt';
-      case 'shift': return 'Shift';
-      case 'super': return 'Win';
-      default: return part.toUpperCase();
-    }
-  }).join(' + ');
+  return shortcut.split('+').map(formatShortcutPart).join(' + ');
+}
+
+function formatShortcutPart(part) {
+  const normalized = part.trim();
+  const lower = normalized.toLowerCase();
+
+  if (/^key[a-z]$/i.test(normalized)) {
+    return normalized.slice(3).toUpperCase();
+  }
+
+  if (/^digit[0-9]$/i.test(normalized)) {
+    return normalized.slice(5);
+  }
+
+  if (/^numpad[0-9]$/i.test(normalized)) {
+    return `Num ${normalized.slice(6)}`;
+  }
+
+  if (/^f([1-9]|1[0-9]|2[0-4])$/i.test(normalized)) {
+    return normalized.toUpperCase();
+  }
+
+  const labels = {
+    arrowup: 'Up',
+    arrowdown: 'Down',
+    arrowleft: 'Left',
+    arrowright: 'Right',
+    backquote: '`',
+    backslash: '\\',
+    bracketleft: '[',
+    bracketright: ']',
+    comma: ',',
+    digit0: '0',
+    digit1: '1',
+    digit2: '2',
+    digit3: '3',
+    digit4: '4',
+    digit5: '5',
+    digit6: '6',
+    digit7: '7',
+    digit8: '8',
+    digit9: '9',
+    equal: '=',
+    minus: '-',
+    period: '.',
+    quote: "'",
+    semicolon: ';',
+    slash: '/',
+    pagedown: 'Page Down',
+    pageup: 'Page Up',
+    printscreen: 'Print Screen',
+    scrolllock: 'Scroll Lock',
+    capslock: 'Caps Lock',
+    numlock: 'Num Lock',
+    numpadadd: 'Num +',
+    numpaddecimal: 'Num .',
+    numpaddivide: 'Num /',
+    numpadenter: 'Num Enter',
+    numpadequal: 'Num =',
+    numpadmultiply: 'Num *',
+    numpadsubtract: 'Num -',
+  };
+
+  if (labels[lower]) {
+    return labels[lower];
+  }
+
+  switch (lower) {
+    case 'ctrl': return 'Ctrl';
+    case 'alt': return 'Alt';
+    case 'shift': return 'Shift';
+    case 'super': return 'Win';
+    default: return normalized.toUpperCase();
+  }
 }

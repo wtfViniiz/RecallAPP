@@ -8,6 +8,7 @@ mod scheduler;
 mod shortcuts;
 mod storage;
 mod tray;
+mod window;
 
 fn main() {
     tauri::Builder::default()
