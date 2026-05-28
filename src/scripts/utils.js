@@ -107,7 +107,7 @@ export function showConfirm(message, onConfirm) {
 }
 
 // Lightweight markdown renderer
-function sanitizeUrl(url) {
+export function sanitizeUrl(url) {
   const lower = url.toLowerCase().trim();
   if (lower.startsWith('javascript:') || lower.startsWith('data:') || lower.startsWith('vbscript:') || lower.startsWith('blob:')) {
     return '#blocked';
@@ -150,8 +150,11 @@ export function renderMarkdown(text) {
   html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
   html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
   html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
-  // Blockquote
-  html = html.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
+  // Blockquote - merge consecutive lines
+  html = html.replace(/(^&gt; .+$\n?)+/gm, (match) => {
+    const inner = match.replace(/^&gt; /gm, '');
+    return `<blockquote>${inner}</blockquote>`;
+  });
   // List items - wrap consecutive items in <ul>
   html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
   html = html.replace(/((<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>');
@@ -191,11 +194,12 @@ export function htmlToMarkdown(html) {
     return placeholder;
   });
 
-  // Inline code
+  // Inline code - decode entities so markdown stores raw chars
   const inlineCodes = [];
   md = md.replace(/<code[^>]*>([^<]+)<\/code>/gi, (_, code) => {
     const placeholder = `__IC_${inlineCodes.length}__`;
-    inlineCodes.push(code);
+    const decoded = code.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ');
+    inlineCodes.push(decoded);
     return placeholder;
   });
 

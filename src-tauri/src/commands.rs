@@ -97,6 +97,17 @@ pub fn update_note(app: AppHandle, cache: State<'_, NoteCache>, input: UpdateNot
     if let Some(ref content) = input.content {
         validate_string(content, 100_000, "Conteudo")?;
     }
+    if let Some(ref category) = input.category {
+        validate_string(category, 100, "Categoria")?;
+    }
+    if let Some(ref tags) = input.tags {
+        if tags.len() > 20 {
+            return Err("Maximo de 20 tags".to_string());
+        }
+        for tag in tags {
+            validate_string(tag, 100, "Tag")?;
+        }
+    }
 
     let note = cache.get_note(&app, &input.id).ok_or("Nota nao encontrada")?;
     // Save version snapshot only when content changes (skip for position/pinned-only updates)
@@ -284,6 +295,9 @@ pub fn update_reminder(app: AppHandle, cache: State<'_, NoteCache>, input: Updat
     }
     if let Some(relative_minutes) = input.relative_minutes {
         reminder.relative_minutes = Some(relative_minutes);
+        // Recalculate trigger_at from now + new relative_minutes
+        let new_trigger = Utc::now() + chrono::Duration::minutes(relative_minutes);
+        reminder.trigger_at = new_trigger.to_rfc3339();
     }
     cache.save_reminder(&app, &reminder)?;
     Ok(reminder)
@@ -347,6 +361,9 @@ pub fn update_config(app: AppHandle, input: Config) -> Result<Config, String> {
     }
     if input.shortcut.is_empty() || input.shortcut.len() > 50 {
         return Err("Atalho invalido".to_string());
+    }
+    if parse_shortcut(&input.shortcut).is_none() {
+        return Err(format!("Formato de atalho invalido: '{}'. Use ex: Ctrl+Alt+N", input.shortcut));
     }
     storage::save_config(&app, &input)?;
     Ok(input)

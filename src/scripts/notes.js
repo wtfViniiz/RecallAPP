@@ -144,14 +144,15 @@ function attachNoteCardHandlers(list, notes) {
       }
 
       const updatedCards = Array.from(list.querySelectorAll('.card'));
-      for (let i = 0; i < updatedCards.length; i++) {
-        const id = updatedCards[i].dataset.id;
-        try {
-          await api.updateNote({ id, position: i });
-        } catch (err) {}
+      const results = await Promise.allSettled(
+        updatedCards.map((card, i) => api.updateNote({ id: card.dataset.id, position: i }))
+      );
+      const failures = results.filter(r => r.status === 'rejected');
+      if (failures.length === 0) {
+        showToast('Nota reposicionada', 'success');
+      } else {
+        showToast(`${failures.length} notas nao atualizadas`, 'warning');
       }
-
-      showToast('Nota reposicionada', 'success');
     });
 
     card.addEventListener('dragend', () => {
@@ -266,8 +267,12 @@ async function renderTrashList() {
   document.getElementById('btn-back-notes').addEventListener('click', renderNotesList);
   document.getElementById('btn-empty-trash').addEventListener('click', () => {
     showConfirm('Excluir permanentemente todas as notas da lixeira?', async () => {
-      const count = await api.emptyTrash();
-      showToast(`${count} notas excluidas permanentemente`, 'success');
+      try {
+        const count = await api.emptyTrash();
+        showToast(`${count} notas excluidas permanentemente`, 'success');
+      } catch (err) {
+        showToast('Erro ao esvaziar lixeira', 'error');
+      }
       renderTrashList();
     });
   });
@@ -312,8 +317,12 @@ async function renderTrashList() {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       showConfirm('Excluir permanentemente?', async () => {
-        await api.deleteNote(btn.dataset.delete);
-        showToast('Nota excluida permanentemente', 'success');
+        try {
+          await api.deleteNote(btn.dataset.delete);
+          showToast('Nota excluida permanentemente', 'success');
+        } catch (err) {
+          showToast('Erro ao excluir', 'error');
+        }
         renderTrashList();
       });
     });
@@ -822,6 +831,26 @@ function openEditor(note) {
                     currentNote = restored;
                     titleInput.value = restored.title;
                     contentInput.innerHTML = markdownToHtml(restored.content);
+                    // Update category chips
+                    const catContainer = document.getElementById('category-chips');
+                    catContainer.querySelectorAll('.chip').forEach(c => c.remove());
+                    if (restored.category) {
+                      const chip = document.createElement('span');
+                      chip.className = 'chip';
+                      chip.dataset.value = restored.category;
+                      chip.innerHTML = `${escapeHtml(restored.category)}<span class="remove">&times;</span>`;
+                      catContainer.insertBefore(chip, catContainer.querySelector('input'));
+                    }
+                    // Update tag chips
+                    const tagContainer = document.getElementById('tag-chips');
+                    tagContainer.querySelectorAll('.chip').forEach(c => c.remove());
+                    restored.tags.forEach(t => {
+                      const chip = document.createElement('span');
+                      chip.className = 'chip';
+                      chip.dataset.value = t;
+                      chip.innerHTML = `#${escapeHtml(t)}<span class="remove">&times;</span>`;
+                      tagContainer.insertBefore(chip, tagContainer.querySelector('input'));
+                    });
                     panel.style.display = 'none';
                     showToast('Versao restaurada', 'success');
                   } catch (err) {
@@ -844,15 +873,23 @@ function openEditor(note) {
     });
 
     document.getElementById('btn-pin-note').addEventListener('click', async () => {
-      await api.updateNote({ id: note.id, pinned: !note.pinned });
-      showToast(note.pinned ? 'Desfixada' : 'Fixada', 'success');
-      openEditor({ ...note, pinned: !note.pinned });
+      try {
+        await api.updateNote({ id: note.id, pinned: !note.pinned });
+        showToast(note.pinned ? 'Desfixada' : 'Fixada', 'success');
+        openEditor({ ...note, pinned: !note.pinned });
+      } catch (err) {
+        showToast('Erro ao fixar nota', 'error');
+      }
     });
 
     document.getElementById('btn-delete-note').addEventListener('click', () => {
       showConfirm('Mover para lixeira?', async () => {
-        await api.trashNote(note.id);
-        showToast('Nota movida para lixeira', 'success');
+        try {
+          await api.trashNote(note.id);
+          showToast('Nota movida para lixeira', 'success');
+        } catch (err) {
+          showToast('Erro ao mover para lixeira', 'error');
+        }
         currentView = 'list';
         renderNotesList();
       });
