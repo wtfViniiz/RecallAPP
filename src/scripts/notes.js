@@ -655,7 +655,7 @@ async function saveNote(silent = false) {
   if (!title && !content) return;
 
   try {
-    if (currentNote) {
+    if (currentNote && currentNote.id) {
       await api.updateNote({
         id: currentNote.id,
         title: title || 'Sem titulo',
