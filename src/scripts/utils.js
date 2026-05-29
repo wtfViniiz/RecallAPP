@@ -53,7 +53,13 @@ export function showToast(message, type = 'info', duration = 3000, isHtml = fals
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
   if (isHtml) {
-    toast.innerHTML = message;
+    // Defense-in-depth: block script tags even in HTML mode
+    if (/<script/i.test(message)) {
+      console.error('showToast: script tag detected in HTML message, blocking');
+      toast.textContent = message.replace(/<[^>]*>/g, '');
+    } else {
+      toast.innerHTML = message;
+    }
   } else {
     toast.textContent = message;
   }
