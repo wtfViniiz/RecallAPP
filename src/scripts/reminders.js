@@ -250,7 +250,6 @@ async function openReminderForm(reminder) {
         } catch (err) {
           showToast('Erro ao excluir', 'error');
         }
-        showToast('Lembrete excluido', 'success');
         renderRemindersList();
       });
     });

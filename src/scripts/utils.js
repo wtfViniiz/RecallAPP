@@ -107,6 +107,20 @@ export function showConfirm(message, onConfirm) {
 }
 
 // Lightweight markdown renderer
+// Convert a relative asset path to a Tauri asset URL
+export function toAssetUrl(path) {
+  if (!path) return path;
+  // If already an absolute URL or data URL, return as-is
+  if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('data:') || path.startsWith('asset:')) {
+    return path;
+  }
+  // Use Tauri's convertFileSrc if available
+  if (window.__TAURI_INTERNALS__?.convertFileSrc) {
+    return window.__TAURI_INTERNALS__.convertFileSrc(path);
+  }
+  return path;
+}
+
 export function sanitizeUrl(url) {
   const lower = url.toLowerCase().trim();
   if (lower.startsWith('javascript:') || lower.startsWith('data:') || lower.startsWith('vbscript:') || lower.startsWith('blob:')) {
@@ -171,9 +185,10 @@ export function renderMarkdown(text) {
   html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, text, url) => {
     return `<a href="${attrEscape(sanitizeUrl(url))}" target="_blank">${text}</a>`;
   });
-  // Images (with URL sanitization)
+  // Images (with URL sanitization and asset conversion)
   html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, url) => {
-    return `<img src="${attrEscape(sanitizeUrl(url))}" alt="${attrEscape(alt)}" style="max-width:100%;border-radius:6px;margin:4px 0">`;
+    const safeUrl = attrEscape(toAssetUrl(sanitizeUrl(url)));
+    return `<img src="${safeUrl}" alt="${attrEscape(alt)}" style="max-width:100%;border-radius:6px;margin:4px 0">`;
   });
   // Line breaks (outside code blocks)
   html = html.replace(/\n/g, '<br>');

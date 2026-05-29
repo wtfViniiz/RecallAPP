@@ -496,9 +496,9 @@ pub fn save_image(
     let path = dir.join(&filename);
     fs::write(&path, &data).map_err(|e| e.to_string())?;
 
-    // Return absolute path so WebView can resolve the image
-    let abs_path = path.to_string_lossy().to_string();
-    Ok(abs_path)
+    // Return relative path from data dir (frontend uses convertFileSrc)
+    let rel_path = format!("images/{}", filename);
+    Ok(rel_path)
 }
 
 #[tauri::command]

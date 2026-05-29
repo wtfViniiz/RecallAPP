@@ -455,32 +455,6 @@ textarea.form-input {
   min-height: 300px;
 }
 
-.line-numbers {
-  background: var(--bg-secondary);
-  border-right: 1px solid var(--border);
-  padding: 8px 0;
-  min-width: 40px;
-  text-align: right;
-  overflow: hidden;
-  user-select: none;
-}
-
-.line-number {
-  padding: 0 8px;
-  font-size: 12px;
-  line-height: 1.6;
-  font-family: 'Consolas', 'Courier New', monospace;
-  color: var(--text-secondary);
-}
-
-.line-number.even {
-  background: transparent;
-}
-
-.line-number.odd {
-  background: var(--line-stripe);
-}
-
 .editor-container {
   flex: 1;
   display: flex;

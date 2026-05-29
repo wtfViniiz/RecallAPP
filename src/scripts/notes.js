@@ -1,5 +1,5 @@
 import { api } from './api.js';
-import { formatDate, formatDateTime, escapeHtml, sanitizeUrl, showToast, showConfirm, renderMarkdown, htmlToMarkdown, markdownToHtml, DEFAULT_CATEGORIES, DEFAULT_TAGS, NOTE_TEMPLATES } from './utils.js';
+import { formatDate, formatDateTime, escapeHtml, sanitizeUrl, toAssetUrl, showToast, showConfirm, renderMarkdown, htmlToMarkdown, markdownToHtml, DEFAULT_CATEGORIES, DEFAULT_TAGS, NOTE_TEMPLATES } from './utils.js';
 
 let currentView = 'list';
 let currentNote = null;
@@ -668,7 +668,7 @@ function openEditor(note) {
             const noteId = currentNote?.id || 'new';
             const path = await api.saveImage(base64, noteId);
             const img = document.createElement('img');
-            img.src = path;
+            img.src = toAssetUrl(path);
             img.style.maxWidth = '100%';
             const sel = window.getSelection();
             if (sel.rangeCount > 0) {

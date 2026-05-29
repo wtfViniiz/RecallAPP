@@ -7,7 +7,6 @@
     "shell:allow-open",
     "notification:default",
     "autostart:default",
-    "updater:default",
     "global-shortcut:default"
   ]
 }
