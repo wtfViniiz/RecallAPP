@@ -410,8 +410,9 @@ function openEditor(note) {
       editorWrapper.style.display = 'none';
       previewDiv.style.display = 'block';
       const md = htmlToMarkdown(contentInput.innerHTML);
-      previewDiv.innerHTML = renderMarkdown(md) +
-        '<div style="text-align:center;margin-top:16px"><button class="btn btn-secondary btn-sm" id="btn-edit-mode">Editar</button></div>';
+      previewDiv.innerHTML =
+        '<div style="text-align:right;margin-bottom:12px"><button class="btn btn-secondary btn-sm" id="btn-edit-mode">Editar</button></div>' +
+        renderMarkdown(md);
       document.getElementById('btn-edit-mode').addEventListener('click', (evt) => {
         evt.stopPropagation();
         isPreviewMode = false;
