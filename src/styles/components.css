@@ -971,7 +971,8 @@ mark {
 .wysiwyg-editor {
   flex: 1;
   border: none;
-  background: transparent;
+  background: var(--bg-tertiary);
+  border-radius: 6px;
   padding: 16px;
   font-size: 14px;
   line-height: 1.7;
