@@ -23,7 +23,10 @@ impl NoteCache {
     where
         F: FnOnce(&[Note]) -> R,
     {
-        let mut guard = self.notes.lock().unwrap_or_else(|e| e.into_inner());
+        let mut guard = self.notes.lock().unwrap_or_else(|e| {
+            eprintln!("Warning: mutex was poisoned, recovering inner data");
+            e.into_inner()
+        });
         if guard.is_none() {
             *guard = Some(storage::list_all_notes(app));
         }
@@ -34,7 +37,10 @@ impl NoteCache {
     where
         F: FnOnce(&[Reminder]) -> R,
     {
-        let mut guard = self.reminders.lock().unwrap_or_else(|e| e.into_inner());
+        let mut guard = self.reminders.lock().unwrap_or_else(|e| {
+            eprintln!("Warning: mutex was poisoned, recovering inner data");
+            e.into_inner()
+        });
         if guard.is_none() {
             *guard = Some(storage::list_reminders(app, None));
         }
@@ -138,7 +144,10 @@ impl NoteCache {
     }
 
     pub fn invalidate_notes(&self) {
-        let mut guard = self.notes.lock().unwrap_or_else(|e| e.into_inner());
+        let mut guard = self.notes.lock().unwrap_or_else(|e| {
+            eprintln!("Warning: mutex was poisoned, recovering inner data");
+            e.into_inner()
+        });
         *guard = None;
     }
 
@@ -203,7 +212,10 @@ impl NoteCache {
     }
 
     pub fn invalidate_reminders(&self) {
-        let mut guard = self.reminders.lock().unwrap_or_else(|e| e.into_inner());
+        let mut guard = self.reminders.lock().unwrap_or_else(|e| {
+            eprintln!("Warning: mutex was poisoned, recovering inner data");
+            e.into_inner()
+        });
         *guard = None;
     }
 }
