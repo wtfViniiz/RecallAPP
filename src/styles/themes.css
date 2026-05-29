@@ -5,8 +5,8 @@ body.dark {
   --bg-card: #0f3460;
   --text-primary: #e0e0e0;
   --text-secondary: #a0a0a0;
-  --accent: #e94560;
-  --accent-hover: #ff6b81;
+  --accent: #b5654a;
+  --accent-hover: #c97d65;
   --border: #2a2a4a;
   --success: #2ed573;
   --warning: #ffa502;
@@ -16,13 +16,13 @@ body.dark {
 
 body.light {
   --bg-primary: #f5f5f5;
-  --bg-secondary: #ffffff;
+  --bg-secondary: #fafafa;
   --bg-tertiary: #f0f0f0;
-  --bg-card: #ffffff;
+  --bg-card: #fafafa;
   --text-primary: #1a1a1a;
-  --text-secondary: #666666;
-  --accent: #e94560;
-  --accent-hover: #c0392b;
+  --text-secondary: #595959;
+  --accent: #b5654a;
+  --accent-hover: #8b4a35;
   --border: #e0e0e0;
   --success: #27ae60;
   --warning: #f39c12;
