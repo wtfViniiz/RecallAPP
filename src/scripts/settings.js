@@ -1,5 +1,5 @@
 import { api } from './api.js';
-import { showToast } from './utils.js';
+import { showToast, showConfirm } from './utils.js';
 
 export async function initSettings() {
   const container = document.getElementById('view-settings');
@@ -93,7 +93,7 @@ export async function initSettings() {
   setupShortcutCapture();
   setupNewNoteShortcutCapture();
 
-  // Save button
+  // Save button with confirmation
   document.getElementById('btn-save-settings').addEventListener('click', async () => {
     const theme = document.querySelector('input[name="theme"]:checked').value;
     const shortcut = document.getElementById('setting-shortcut').value;
@@ -101,52 +101,54 @@ export async function initSettings() {
     const autostart = document.getElementById('setting-autostart').checked;
     const fontSize = parseInt(document.getElementById('setting-font-size').value) || 14;
 
-    // Save config first (independent of shortcut)
-    try {
-      await api.updateConfig({
-        theme,
-        shortcut,
-        new_note_shortcut: newNoteShortcut,
-        autostart,
-        font_size: fontSize,
-        check_updates: config.check_updates,
-        window_width: config.window_width,
-        window_height: config.window_height,
-      });
-    } catch (e) {
-      console.error('Failed to save settings:', e);
-      showToast(e.message || 'Erro ao salvar configuracoes', 'error');
-      return;
-    }
-
-    // Then update shortcuts (may fail if invalid/in-use)
-    try {
-      await api.updateShortcut(shortcut);
-    } catch (e) {
-      console.error('Failed to update shortcut:', e);
-      showToast(e.message || 'Config salvas, mas atalho invalido ou ja em uso', 'warning');
-    }
-
-    try {
-      await api.updateNewNoteShortcut(newNoteShortcut);
-    } catch (e) {
-      console.error('Failed to update new note shortcut:', e);
-      showToast(e.message || 'Config salvas, mas atalho de nova nota invalido', 'warning');
-    }
-
-    // Toggle autostart registration
-    try {
-      if (autostart) {
-        await window.__TAURI_INTERNALS__.invoke('plugin:autostart|enable');
-      } else {
-        await window.__TAURI_INTERNALS__.invoke('plugin:autostart|disable');
+    showConfirm('Salvar configuracoes?', async () => {
+      // Save config first (independent of shortcut)
+      try {
+        await api.updateConfig({
+          theme,
+          shortcut,
+          new_note_shortcut: newNoteShortcut,
+          autostart,
+          font_size: fontSize,
+          check_updates: config.check_updates,
+          window_width: config.window_width,
+          window_height: config.window_height,
+        });
+      } catch (e) {
+        console.error('Failed to save settings:', e);
+        showToast(e.message || 'Erro ao salvar configuracoes', 'error');
+        return;
       }
-    } catch (e) {
-      console.error('Autostart toggle error:', e);
-    }
 
-    document.body.className = theme;
-    showToast('Configuracoes salvas', 'success');
+      // Then update shortcuts (may fail if invalid/in-use)
+      try {
+        await api.updateShortcut(shortcut);
+      } catch (e) {
+        console.error('Failed to update shortcut:', e);
+        showToast(e.message || 'Config salvas, mas atalho invalido ou ja em uso', 'warning');
+      }
+
+      try {
+        await api.updateNewNoteShortcut(newNoteShortcut);
+      } catch (e) {
+        console.error('Failed to update new note shortcut:', e);
+        showToast(e.message || 'Config salvas, mas atalho de nova nota invalido', 'warning');
+      }
+
+      // Toggle autostart registration
+      try {
+        if (autostart) {
+          await window.__TAURI_INTERNALS__.invoke('plugin:autostart|enable');
+        } else {
+          await window.__TAURI_INTERNALS__.invoke('plugin:autostart|disable');
+        }
+      } catch (e) {
+        console.error('Autostart toggle error:', e);
+      }
+
+      document.body.className = theme;
+      showToast('Configuracoes salvas', 'success');
+    });
   });
 
   // Export button
