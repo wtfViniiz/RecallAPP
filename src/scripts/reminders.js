@@ -167,6 +167,7 @@ async function openReminderForm(reminder) {
     </div>
     <div class="form-group">
       <label>Vincular nota (opcional)</label>
+      <input type="text" id="reminder-note-search" placeholder="Buscar nota..." style="margin-bottom: 6px;">
       <select id="reminder-note">
         <option value="">Nenhuma</option>
       </select>
@@ -197,19 +198,43 @@ async function openReminderForm(reminder) {
     </div>
   `;
 
-  // Populate note selector
+  // Populate note selector with search filter
+  let allNotes = [];
   try {
     const result = await api.getNotes({ limit: 500 });
-    const notes = result.items;
+    allNotes = result.items;
     const noteSelect = document.getElementById('reminder-note');
-    notes.forEach(note => {
+    allNotes.forEach(note => {
       const option = document.createElement('option');
       option.value = note.id;
       option.textContent = note.title || 'Sem titulo';
       if (reminder?.note_id === note.id) option.selected = true;
       noteSelect.appendChild(option);
     });
-  } catch (e) {}
+  } catch (e) {
+    console.warn('[Recall] Failed to load notes for selector:', e);
+  }
+
+  // Client-side search filter for note selector
+  const noteSearch = document.getElementById('reminder-note-search');
+  if (noteSearch) {
+    noteSearch.addEventListener('input', () => {
+      const query = noteSearch.value.toLowerCase().trim();
+      const noteSelect = document.getElementById('reminder-note');
+      const currentValue = noteSelect.value;
+      noteSelect.innerHTML = '<option value="">Nenhuma</option>';
+      const filtered = query
+        ? allNotes.filter(n => (n.title || 'Sem titulo').toLowerCase().includes(query))
+        : allNotes;
+      filtered.forEach(note => {
+        const option = document.createElement('option');
+        option.value = note.id;
+        option.textContent = note.title || 'Sem titulo';
+        if (note.id === currentValue) option.selected = true;
+        noteSelect.appendChild(option);
+      });
+    });
+  }
 
   if (reminder?.trigger_at) {
     const d = new Date(reminder.trigger_at);
@@ -270,7 +295,9 @@ async function saveReminder() {
 
   // If editing, update all fields
   if (currentReminder) {
-    const updateData = { id: currentReminder.id, title, description };
+    const updateData = { id: currentReminder.id, title, description, repeat: '', relative_minutes: 0 };
+    // Clear stale fields first, then set based on selected type
+    delete updateData.trigger_at;
 
     const type = document.querySelector('input[name="reminder-type"]:checked')?.value;
     if (type === 'datetime') {
@@ -328,8 +355,16 @@ async function saveReminder() {
 
 async function renderCalendarView() {
   const container = document.getElementById('view-reminders');
-  const result = await api.getReminders({ status: 'pending' });
-  const reminders = result.items;
+  let reminders;
+  try {
+    const result = await api.getReminders({ status: 'pending' });
+    reminders = result.items;
+  } catch (e) {
+    console.error('[Recall] Calendar load error:', e);
+    showToast('Erro ao carregar calendario', 'error');
+    renderRemindersList();
+    return;
+  }
 
   const now = new Date();
   const year = calendarYear;
@@ -430,8 +465,8 @@ async function renderCalendarView() {
       const day = parseInt(dayEl.dataset.day);
       const dayReminders = remindersByDay[day] || [];
       if (dayReminders.length > 0) {
-        const titles = dayReminders.map(r => `• ${r.title}`).join('\n');
-        showToast(`${day}/${month + 1}:\n${titles}`, 'info', 8000);
+        const titles = dayReminders.map(r => `• ${escapeHtml(r.title)}`).join('<br>');
+        showToast(`${day}/${month + 1}:<br>${titles}`, 'info', 8000, true);
       } else {
         showToast(`${day}/${month + 1}: Sem lembretes`, 'info', 3000);
       }
