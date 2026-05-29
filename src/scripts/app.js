@@ -1,5 +1,6 @@
 import { api } from './api.js';
 import { showToast } from './utils.js';
+import { icons } from './icons.js';
 
 const tabs = document.querySelectorAll('.tab');
 const views = document.querySelectorAll('.view');
@@ -7,33 +8,40 @@ let isPinned = false;
 
 // Pin window button
 const pinBtn = document.getElementById('pin-window');
-const pinIcon = pinBtn.querySelector('.pin-icon');
+let pinIcon = null;
+
+if (pinBtn) {
+  pinIcon = pinBtn.querySelector('.pin-icon');
+}
 
 function updatePinVisual() {
+  if (!pinBtn || !pinIcon) return;
   if (isPinned) {
     pinBtn.classList.add('active');
-    pinIcon.innerHTML = '&#9733;';
+    pinIcon.innerHTML = icons['star-filled'](16);
     pinBtn.title = 'Desafixar';
   } else {
     pinBtn.classList.remove('active');
-    pinIcon.innerHTML = '&#9734;';
+    pinIcon.innerHTML = icons.star(16);
     pinBtn.title = 'Fixar em primeiro plano';
   }
 }
 
-pinBtn.addEventListener('click', async () => {
-  const newState = !isPinned;
-  try {
-    await api.setAlwaysOnTop(newState);
-    isPinned = newState;
-    updatePinVisual();
-  } catch (e) {
-    showToast('Erro ao fixar janela', 'error');
-    // Revert visual on failure
-    isPinned = !newState;
-    updatePinVisual();
-  }
-});
+if (pinBtn) {
+  pinBtn.addEventListener('click', async () => {
+    const newState = !isPinned;
+    try {
+      await api.setAlwaysOnTop(newState);
+      isPinned = newState;
+      updatePinVisual();
+    } catch (e) {
+      showToast('Erro ao fixar janela', 'error');
+      // Revert visual on failure
+      isPinned = !newState;
+      updatePinVisual();
+    }
+  });
+}
 
 updatePinVisual();
 
@@ -134,12 +142,29 @@ document.addEventListener('mousedown', async (e) => {
   }
 });
 
+// Prevent double-click on title bar from maximizing window
+const headerBar = document.getElementById('header-bar');
+if (headerBar) {
+  headerBar.addEventListener('dblclick', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  });
+}
+
 // Tray actions
 window.addEventListener('tray-action', (e) => {
   const action = e.detail;
   if (action === 'new-note') {
     document.querySelector('[data-tab="notes"]').click();
     setTimeout(() => document.getElementById('btn-new-note')?.click(), 200);
+  } else if (action === 'direct-new-note') {
+    // Open editor directly without template selector
+    document.querySelector('[data-tab="notes"]').click();
+    setTimeout(async () => {
+      if (notesModule) {
+        await notesModule.openEditorDirect();
+      }
+    }, 200);
   } else if (action === 'new-reminder') {
     document.querySelector('[data-tab="reminders"]').click();
     setTimeout(() => document.getElementById('btn-new-reminder')?.click(), 200);
