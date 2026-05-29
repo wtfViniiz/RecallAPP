@@ -2,7 +2,7 @@ use crate::cache::NoteCache;
 use crate::models::*;
 use crate::shortcuts::parse_shortcut;
 use crate::storage;
-use crate::window::toggle_main_window;
+use crate::window::{show_main_window, toggle_main_window};
 use chrono::Utc;
 use std::fs;
 use tauri::{AppHandle, Manager, State};
@@ -516,6 +516,71 @@ pub fn update_shortcut(app: AppHandle, shortcut_str: String) -> Result<(), Strin
             }
         })
         .map_err(|e| e.to_string())?;
+
+    // Re-register new note shortcut from config
+    let config = storage::load_config(&app);
+    if !config.new_note_shortcut.is_empty() {
+        if let Some(nn_shortcut) = parse_shortcut(&config.new_note_shortcut) {
+            let _ = app.global_shortcut().on_shortcut(nn_shortcut, |app, _shortcut, event| {
+                if event.state == tauri_plugin_global_shortcut::ShortcutState::Pressed {
+                    show_main_window(app);
+                    if let Some(window) = app.get_webview_window("main") {
+                        let _ = window.eval("window.dispatchEvent(new CustomEvent('tray-action', { detail: 'direct-new-note' }));");
+                    }
+                }
+            });
+        }
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn update_new_note_shortcut(app: AppHandle, shortcut_str: String) -> Result<(), String> {
+    // Empty string = disable shortcut
+    if !shortcut_str.is_empty() {
+        parse_shortcut(&shortcut_str).ok_or("Formato de atalho invalido")?;
+    }
+
+    // Unregister all and re-register both
+    app.global_shortcut()
+        .unregister_all()
+        .map_err(|e| e.to_string())?;
+
+    // Re-register main shortcut
+    let config = storage::load_config(&app);
+    let main_shortcut = parse_shortcut(&config.shortcut)
+        .or_else(|| parse_shortcut("Ctrl+Alt+X"))
+        .unwrap_or_else(|| {
+            eprintln!("WARNING: fallback shortcut 'Ctrl+Alt+X' failed to parse, using hardcoded shortcut");
+            "Ctrl+Alt+X".parse().unwrap_or_else(|_| {
+                eprintln!("ERROR: all shortcut parsing failed, using Ctrl+X as last resort");
+                "Ctrl+X".parse().expect("Ctrl+X must parse")
+            })
+        });
+    app.global_shortcut()
+        .on_shortcut(main_shortcut, |app, _shortcut, event| {
+            if event.state == tauri_plugin_global_shortcut::ShortcutState::Pressed {
+                toggle_main_window(app);
+            }
+        })
+        .map_err(|e| e.to_string())?;
+
+    // Register new note shortcut if not empty
+    if !shortcut_str.is_empty() {
+        if let Some(nn_shortcut) = parse_shortcut(&shortcut_str) {
+            app.global_shortcut()
+                .on_shortcut(nn_shortcut, |app, _shortcut, event| {
+                    if event.state == tauri_plugin_global_shortcut::ShortcutState::Pressed {
+                        show_main_window(app);
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.eval("window.dispatchEvent(new CustomEvent('tray-action', { detail: 'direct-new-note' }));");
+                        }
+                    }
+                })
+                .map_err(|e| e.to_string())?;
+        }
+    }
 
     Ok(())
 }

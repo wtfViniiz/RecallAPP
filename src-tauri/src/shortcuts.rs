@@ -1,21 +1,50 @@
 use crate::storage;
-use crate::window::toggle_main_window;
+use crate::window::{show_main_window, toggle_main_window};
+use tauri::Manager;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
 
 pub fn register_shortcut(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let config = storage::load_config(app.handle());
-    let shortcut = parse_shortcut(&config.shortcut).unwrap_or_else(|| {
-        // Fallback to Ctrl+Alt+X
-        "Ctrl+Alt+X"
-            .parse()
-            .expect("fallback shortcut should always parse")
-    });
+    let shortcut = parse_shortcut(&config.shortcut)
+        .or_else(|| parse_shortcut("Ctrl+Alt+X"))
+        .unwrap_or_else(|| {
+            eprintln!("WARNING: fallback shortcut 'Ctrl+Alt+X' failed to parse, using hardcoded shortcut");
+            // Last resort: parse should never fail on this well-formed shortcut,
+            // but if it does, we construct a minimal shortcut to avoid panicking.
+            "Ctrl+Alt+X".parse().unwrap_or_else(|_| {
+                // If even this fails, log and use a minimal Ctrl+X shortcut
+                eprintln!("ERROR: all shortcut parsing failed, using Ctrl+X as last resort");
+                "Ctrl+X".parse().expect("Ctrl+X must parse")
+            })
+        });
 
     app.global_shortcut().on_shortcut(shortcut, |app, _shortcut, event| {
         if event.state == tauri_plugin_global_shortcut::ShortcutState::Pressed {
             toggle_main_window(app);
         }
     })?;
+
+    // Register new note shortcut if configured
+    register_new_note_shortcut(app, &config.new_note_shortcut)?;
+
+    Ok(())
+}
+
+fn register_new_note_shortcut(app: &tauri::App, shortcut_str: &str) -> Result<(), Box<dyn std::error::Error>> {
+    if shortcut_str.is_empty() {
+        return Ok(());
+    }
+
+    if let Some(shortcut) = parse_shortcut(shortcut_str) {
+        app.global_shortcut().on_shortcut(shortcut, |app, _shortcut, event| {
+            if event.state == tauri_plugin_global_shortcut::ShortcutState::Pressed {
+                show_main_window(app);
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.eval("window.dispatchEvent(new CustomEvent('tray-action', { detail: 'direct-new-note' }));");
+                }
+            }
+        })?;
+    }
 
     Ok(())
 }
