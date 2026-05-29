@@ -66,17 +66,21 @@ async function renderNotesList() {
     const result = await api.getCategoriesAndTags();
     result.categories.forEach(c => { if (!allCategories.includes(c)) allCategories.push(c); });
     result.tags.forEach(t => { if (!allTags.includes(t)) allTags.push(t); });
-  } catch (e) {}
+  } catch (e) { console.warn('[Recall] Failed to load categories/tags:', e); }
 
   const catSelect = document.getElementById('filter-category');
+  let catOptionsHtml = '';
   allCategories.forEach(c => {
-    catSelect.innerHTML += `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`;
+    catOptionsHtml += `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`;
   });
+  catSelect.innerHTML += catOptionsHtml;
 
   const tagSelect = document.getElementById('filter-tag');
+  let tagOptionsHtml = '';
   allTags.forEach(t => {
-    tagSelect.innerHTML += `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`;
+    tagOptionsHtml += `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`;
   });
+  tagSelect.innerHTML += tagOptionsHtml;
 
   document.getElementById('note-search').addEventListener('input', debounce(() => loadNotes(), 200));
   document.getElementById('filter-category').addEventListener('change', () => loadNotes());
@@ -339,9 +343,15 @@ async function renderTrashList() {
 
 function highlightMatch(text, query) {
   if (!query) return escapeHtml(text);
-  const escaped = escapeHtml(text);
-  const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-  return escaped.replace(regex, '<mark>$1</mark>');
+  const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`(${escapedQuery})`, 'gi');
+  const parts = text.split(regex);
+  return parts.map((part, i) => {
+    if (i % 2 === 1) {
+      return `<mark>${escapeHtml(part)}</mark>`;
+    }
+    return escapeHtml(part);
+  }).join('');
 }
 
 async function showTemplateSelector() {
@@ -351,7 +361,7 @@ async function showTemplateSelector() {
   let customTemplates = [];
   try {
     customTemplates = await api.getCustomTemplates();
-  } catch (e) {}
+  } catch (e) { console.warn('[Recall] Failed to load custom templates:', e); }
 
   container.innerHTML = `
     <div class="header">
