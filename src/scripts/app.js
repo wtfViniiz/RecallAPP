@@ -50,6 +50,13 @@ async function applyTheme() {
 // Tab switching
 let notesModule = null;
 
+// Initialize the default active tab on load
+(async () => {
+  notesModule = await import('./notes.js');
+  notesModule.initNotes();
+  applyTheme();
+})();
+
 tabs.forEach(tab => {
   tab.addEventListener('click', async () => {
     const target = tab.dataset.tab;
@@ -174,6 +181,3 @@ document.addEventListener('keydown', async (e) => {
   }
 });
 
-applyTheme();
-// Init notes tab on load
-import('./notes.js').then(({ initNotes }) => initNotes());
