@@ -5,6 +5,7 @@ import { icons } from './icons.js';
 const tabs = document.querySelectorAll('.tab');
 const views = document.querySelectorAll('.view');
 let isPinned = false;
+let notesModule = null;
 
 // Pin window button
 const pinBtn = document.getElementById('pin-window');
@@ -45,18 +46,22 @@ if (pinBtn) {
 
 updatePinVisual();
 
-// Theme
+// Theme + config
 async function applyTheme() {
   try {
     const config = await api.getConfig();
     document.body.className = config.theme;
+    // Fix L8: Persist pin state from config
+    if (config.always_on_top) {
+      isPinned = true;
+      updatePinVisual();
+    }
   } catch (e) {
     console.error('Theme error:', e);
   }
 }
 
 // Tab switching
-let notesModule = null;
 
 // Initialize the default active tab on load
 (async () => {
@@ -77,7 +82,8 @@ tabs.forEach(tab => {
     tabs.forEach(t => t.classList.remove('active'));
     views.forEach(v => v.classList.remove('active'));
     tab.classList.add('active');
-    document.getElementById(`view-${target}`).classList.add('active');
+    // Fix M1: null check on view element
+    document.getElementById(`view-${target}`)?.classList.add('active');
 
     if (target === 'notes') {
       notesModule = await import('./notes.js');
@@ -94,22 +100,58 @@ tabs.forEach(tab => {
   });
 });
 
-// Escape to hide
+// Fix M3: Consolidated single keydown handler
 document.addEventListener('keydown', async (e) => {
-  if (e.key === 'Escape' && !isPinned) {
-    try {
-      await window.__TAURI_INTERNALS__.invoke('plugin:window|set_visible', { visible: false });
-    } catch (err) {}
+  // Ctrl+Shift+N — quick capture (highest priority)
+  // Fix H2: flush pending saves before destroying view
+  if (e.ctrlKey && e.shiftKey && e.key === 'N') {
+    e.preventDefault();
+    if (notesModule) {
+      await notesModule.flushPendingSave();
+    }
+    tabs.forEach(t => t.classList.remove('active'));
+    views.forEach(v => v.classList.remove('active'));
+    document.querySelector('[data-tab="notes"]').classList.add('active');
+    document.getElementById('view-notes').classList.add('active');
+    document.getElementById('view-notes').innerHTML = `
+      <div class="quick-capture">
+        <textarea id="quick-capture-input" placeholder="Anotacao rapida..." autofocus></textarea>
+        <div class="quick-capture-actions">
+          <button class="btn btn-secondary" id="quick-capture-cancel">Cancelar</button>
+          <button class="btn btn-primary" id="quick-capture-save">Salvar</button>
+        </div>
+      </div>
+    `;
+    const input = document.getElementById('quick-capture-input');
+    input.focus();
+    document.getElementById('quick-capture-cancel').addEventListener('click', () => {
+      document.querySelector('[data-tab="notes"]').click();
+    });
+    document.getElementById('quick-capture-save').addEventListener('click', async () => {
+      const content = input.value.trim();
+      if (content) {
+        await api.createNote({ title: content.split('\n')[0].slice(0, 50), content, tags: ['rascunho'] });
+        showToast('Nota rapida salva', 'success');
+      }
+      document.querySelector('[data-tab="notes"]').click();
+    });
+    return;
   }
-});
 
-// Global keyboard shortcuts
-document.addEventListener('keydown', async (e) => {
   // Ctrl+N: New note
+  // Fix M2: Use MutationObserver to wait for btn-new-note
   if (e.ctrlKey && !e.shiftKey && e.key === 'n') {
     e.preventDefault();
     document.querySelector('[data-tab="notes"]').click();
-    setTimeout(() => document.getElementById('btn-new-note')?.click(), 100);
+    const waitForBtn = () => {
+      const btn = document.getElementById('btn-new-note');
+      if (btn) {
+        btn.click();
+      } else {
+        requestAnimationFrame(waitForBtn);
+      }
+    };
+    requestAnimationFrame(waitForBtn);
     return;
   }
 
@@ -117,10 +159,16 @@ document.addEventListener('keydown', async (e) => {
   if (e.ctrlKey && e.key === 'p') {
     e.preventDefault();
     document.querySelector('[data-tab="notes"]').click();
-    setTimeout(() => {
+    const waitForSearch = () => {
       const search = document.getElementById('note-search');
-      if (search) { search.focus(); search.select(); }
-    }, 100);
+      if (search) {
+        search.focus();
+        search.select();
+      } else {
+        requestAnimationFrame(waitForSearch);
+      }
+    };
+    requestAnimationFrame(waitForSearch);
     return;
   }
 
@@ -128,6 +176,14 @@ document.addEventListener('keydown', async (e) => {
   if (e.ctrlKey && e.key === ',') {
     e.preventDefault();
     document.querySelector('[data-tab="settings"]').click();
+    return;
+  }
+
+  // Escape to hide
+  if (e.key === 'Escape' && !isPinned) {
+    try {
+      await window.__TAURI_INTERNALS__.invoke('plugin:window|set_visible', { visible: false });
+    } catch (err) {}
     return;
   }
 });
@@ -172,37 +228,3 @@ window.addEventListener('tray-action', (e) => {
     document.querySelector('[data-tab="settings"]').click();
   }
 });
-
-// Quick capture
-document.addEventListener('keydown', async (e) => {
-  if (e.ctrlKey && e.shiftKey && e.key === 'N') {
-    e.preventDefault();
-    tabs.forEach(t => t.classList.remove('active'));
-    views.forEach(v => v.classList.remove('active'));
-    document.querySelector('[data-tab="notes"]').classList.add('active');
-    document.getElementById('view-notes').classList.add('active');
-    document.getElementById('view-notes').innerHTML = `
-      <div class="quick-capture">
-        <textarea id="quick-capture-input" placeholder="Anotacao rapida..." autofocus></textarea>
-        <div class="quick-capture-actions">
-          <button class="btn btn-secondary" id="quick-capture-cancel">Cancelar</button>
-          <button class="btn btn-primary" id="quick-capture-save">Salvar</button>
-        </div>
-      </div>
-    `;
-    const input = document.getElementById('quick-capture-input');
-    input.focus();
-    document.getElementById('quick-capture-cancel').addEventListener('click', () => {
-      document.querySelector('[data-tab="notes"]').click();
-    });
-    document.getElementById('quick-capture-save').addEventListener('click', async () => {
-      const content = input.value.trim();
-      if (content) {
-        await api.createNote({ title: content.split('\n')[0].slice(0, 50), content, tags: ['rascunho'] });
-        showToast('Nota rapida salva', 'success');
-      }
-      document.querySelector('[data-tab="notes"]').click();
-    });
-  }
-});
-
