@@ -51,47 +51,7 @@ impl NoteCache {
 
     pub fn list_notes(&self, app: &AppHandle, filter: Option<NoteFilter>) -> Vec<Note> {
         self.with_notes(app, |notes| {
-            let mut filtered: Vec<Note> = notes
-                .iter()
-                .filter(|n| !n.trashed)
-                .filter(|n| {
-                    if let Some(ref f) = filter {
-                        if let Some(ref search) = f.search {
-                            let search_lower = search.to_lowercase();
-                            if !n.title.to_lowercase().contains(&search_lower)
-                                && !n.content.to_lowercase().contains(&search_lower)
-                            {
-                                return false;
-                            }
-                        }
-                        if let Some(ref cat) = f.category {
-                            if n.category.as_ref() != Some(cat) {
-                                return false;
-                            }
-                        }
-                        if let Some(ref tag) = f.tag {
-                            if !n.tags.contains(tag) {
-                                return false;
-                            }
-                        }
-                    }
-                    true
-                })
-                .cloned()
-                .collect();
-
-            filtered.sort_by(|a, b| {
-                b.pinned
-                    .cmp(&a.pinned)
-                    .then_with(|| match (a.position, b.position) {
-                        (Some(pa), Some(pb)) => pa.cmp(&pb),
-                        (Some(_), None) => std::cmp::Ordering::Less,
-                        (None, Some(_)) => std::cmp::Ordering::Greater,
-                        (None, None) => b.updated_at.cmp(&a.updated_at),
-                    })
-            });
-
-            filtered
+            storage::apply_note_filters(notes, filter.as_ref())
         })
     }
 
@@ -155,20 +115,7 @@ impl NoteCache {
 
     pub fn list_reminders(&self, app: &AppHandle, status: Option<String>) -> Vec<Reminder> {
         self.with_reminders(app, |reminders| {
-            let mut filtered: Vec<Reminder> = reminders
-                .iter()
-                .filter(|r| {
-                    if let Some(ref s) = status {
-                        r.status == *s
-                    } else {
-                        true
-                    }
-                })
-                .cloned()
-                .collect();
-
-            filtered.sort_by(|a, b| a.trigger_at.cmp(&b.trigger_at));
-            filtered
+            storage::apply_reminder_filters(reminders, status.as_deref())
         })
     }
 

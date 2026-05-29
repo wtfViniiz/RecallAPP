@@ -109,9 +109,45 @@ pub fn delete_reminder(app_handle: &tauri::AppHandle, id: &str) -> Result<(), St
 
 // --- Notes (_at variants - take Path directly, testable without AppHandle) ---
 
+/// Single source of truth for note filtering and sorting.
+/// Filters out trashed notes, applies search/category/tag filters from NoteFilter,
+/// and sorts by: pinned first, then position (Some before None), then updated_at desc.
+pub fn apply_note_filters(notes: &[Note], filter: Option<&NoteFilter>) -> Vec<Note> {
+    let mut result: Vec<Note> = notes.iter().filter(|n| !n.trashed).cloned().collect();
+
+    if let Some(filter) = filter {
+        if let Some(search) = &filter.search {
+            let search_lower = search.to_lowercase();
+            result.retain(|n| {
+                n.title.to_lowercase().contains(&search_lower)
+                    || n.content.to_lowercase().contains(&search_lower)
+            });
+        }
+        if let Some(category) = &filter.category {
+            result.retain(|n| n.category.as_deref() == Some(category));
+        }
+        if let Some(tag) = &filter.tag {
+            result.retain(|n| n.tags.contains(tag));
+        }
+    }
+
+    result.sort_by(|a, b| {
+        b.pinned
+            .cmp(&a.pinned)
+            .then_with(|| match (a.position, b.position) {
+                (Some(pa), Some(pb)) => pa.cmp(&pb),
+                (Some(_), None) => std::cmp::Ordering::Less,
+                (None, Some(_)) => std::cmp::Ordering::Greater,
+                (None, None) => b.updated_at.cmp(&a.updated_at),
+            })
+    });
+
+    result
+}
+
 pub fn list_notes_at(data_dir: &Path, filter: Option<NoteFilter>) -> Vec<Note> {
     let dir = data_dir.join("notes");
-    let mut notes: Vec<Note> = fs::read_dir(&dir)
+    let notes: Vec<Note> = fs::read_dir(&dir)
         .ok()
         .into_iter()
         .flatten()
@@ -131,35 +167,7 @@ pub fn list_notes_at(data_dir: &Path, filter: Option<NoteFilter>) -> Vec<Note> {
         })
         .collect();
 
-    notes.retain(|n| !n.trashed);
-
-    if let Some(ref filter) = filter {
-        if let Some(search) = &filter.search {
-            let search_lower = search.to_lowercase();
-            notes.retain(|n| {
-                n.title.to_lowercase().contains(&search_lower)
-                    || n.content.to_lowercase().contains(&search_lower)
-            });
-        }
-        if let Some(category) = &filter.category {
-            notes.retain(|n| n.category.as_deref() == Some(category));
-        }
-        if let Some(tag) = &filter.tag {
-            notes.retain(|n| n.tags.contains(tag));
-        }
-    }
-
-    notes.sort_by(|a, b| {
-        a.pinned
-            .cmp(&b.pinned)
-            .reverse()
-            .then_with(|| match (a.position, b.position) {
-                (Some(pa), Some(pb)) => pa.cmp(&pb),
-                (Some(_), None) => std::cmp::Ordering::Less,
-                (None, Some(_)) => std::cmp::Ordering::Greater,
-                (None, None) => b.updated_at.cmp(&a.updated_at),
-            })
-    });
+    let mut notes = apply_note_filters(&notes, filter.as_ref());
 
     // Apply pagination if requested
     let offset = filter.as_ref().and_then(|f| f.offset).unwrap_or(0);
@@ -364,9 +372,22 @@ pub fn save_custom_templates_at(data_dir: &Path, templates: &[CustomTemplate]) -
 
 // --- Reminders (_at variants) ---
 
+/// Single source of truth for reminder filtering and sorting.
+/// Filters by status (if provided) and sorts by trigger_at ascending.
+pub fn apply_reminder_filters(reminders: &[Reminder], status: Option<&str>) -> Vec<Reminder> {
+    let mut result: Vec<Reminder> = reminders.to_vec();
+
+    if let Some(status) = status {
+        result.retain(|r| r.status == status);
+    }
+
+    result.sort_by(|a, b| a.trigger_at.cmp(&b.trigger_at));
+    result
+}
+
 pub fn list_reminders_at(data_dir: &Path, status: Option<String>) -> Vec<Reminder> {
     let dir = data_dir.join("reminders");
-    let mut reminders: Vec<Reminder> = fs::read_dir(&dir)
+    let reminders: Vec<Reminder> = fs::read_dir(&dir)
         .ok()
         .into_iter()
         .flatten()
@@ -386,12 +407,7 @@ pub fn list_reminders_at(data_dir: &Path, status: Option<String>) -> Vec<Reminde
         })
         .collect();
 
-    if let Some(status) = status {
-        reminders.retain(|r| r.status == status);
-    }
-
-    reminders.sort_by(|a, b| a.trigger_at.cmp(&b.trigger_at));
-    reminders
+    apply_reminder_filters(&reminders, status.as_deref())
 }
 
 pub fn get_reminder_at(data_dir: &Path, id: &str) -> Option<Reminder> {
