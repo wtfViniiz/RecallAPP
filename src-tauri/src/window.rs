@@ -6,12 +6,24 @@ fn get_main_window(app: &AppHandle) -> Option<tauri::WebviewWindow> {
 
 pub fn show_main_window(app: &AppHandle) {
     if let Some(window) = get_main_window(app) {
-        let _ = window.set_always_on_top(true);
-        let _ = window.show();
-        let _ = window.unminimize();
-        let _ = window.request_user_attention(Some(UserAttentionType::Critical));
-        let _ = window.set_focus();
-        let _ = window.set_always_on_top(false);
+        if let Err(e) = window.set_always_on_top(true) {
+            eprintln!("Warning: set_always_on_top(true) failed: {}", e);
+        }
+        if let Err(e) = window.show() {
+            eprintln!("Warning: show() failed: {}", e);
+        }
+        if let Err(e) = window.unminimize() {
+            eprintln!("Warning: unminimize() failed: {}", e);
+        }
+        if let Err(e) = window.request_user_attention(Some(UserAttentionType::Critical)) {
+            eprintln!("Warning: request_user_attention() failed: {}", e);
+        }
+        if let Err(e) = window.set_focus() {
+            eprintln!("Warning: set_focus() failed: {}", e);
+        }
+        if let Err(e) = window.set_always_on_top(false) {
+            eprintln!("Warning: set_always_on_top(false) failed: {}", e);
+        }
     }
 }
 
@@ -21,14 +33,28 @@ pub fn toggle_main_window(app: &AppHandle) {
         let is_minimized = window.is_minimized().unwrap_or(false);
 
         if is_focused && !is_minimized {
-            let _ = window.minimize();
+            if let Err(e) = window.minimize() {
+                eprintln!("Warning: minimize() failed: {}", e);
+            }
         } else {
-            let _ = window.set_always_on_top(true);
-            let _ = window.show();
-            let _ = window.unminimize();
-            let _ = window.request_user_attention(Some(UserAttentionType::Critical));
-            let _ = window.set_focus();
-            let _ = window.set_always_on_top(false);
+            if let Err(e) = window.set_always_on_top(true) {
+                eprintln!("Warning: set_always_on_top(true) failed: {}", e);
+            }
+            if let Err(e) = window.show() {
+                eprintln!("Warning: show() failed: {}", e);
+            }
+            if let Err(e) = window.unminimize() {
+                eprintln!("Warning: unminimize() failed: {}", e);
+            }
+            if let Err(e) = window.request_user_attention(Some(UserAttentionType::Critical)) {
+                eprintln!("Warning: request_user_attention() failed: {}", e);
+            }
+            if let Err(e) = window.set_focus() {
+                eprintln!("Warning: set_focus() failed: {}", e);
+            }
+            if let Err(e) = window.set_always_on_top(false) {
+                eprintln!("Warning: set_always_on_top(false) failed: {}", e);
+            }
         }
     }
 }
