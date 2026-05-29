@@ -47,4 +47,6 @@ export const icons = {
   strikethrough: (sz) => svg('<path d="M16 4H9a3 3 0 0 0-2.83 4"/><path d="M14 12a4 4 0 0 1 0 8H6"/><line x1="4" y1="12" x2="20" y2="12"/>', { size: sz }),
   heading: (sz) => svg('<path d="M6 4v16"/><path d="M18 4v16"/><path d="M6 12h12"/>', { size: sz }),
   'corner-down-left': (sz) => svg('<polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/>', { size: sz }),
+  'arrow-left': (sz) => svg('<line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>', { size: sz }),
+  save: (sz) => svg('<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>', { size: sz }),
 };

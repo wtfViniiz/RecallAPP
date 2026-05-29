@@ -4,17 +4,12 @@ import { icons } from './icons.js';
 import { renderNotesList, getCurrentView, setCurrentView, getAllCategories, getAllTags } from './notes.js';
 
 let currentNote = null;
-let saveTimeout = null;
 
 export { openEditor, flushPendingSave, saveNote };
 
 async function flushPendingSave() {
-  if (saveTimeout) {
-    clearTimeout(saveTimeout);
-    saveTimeout = null;
-    if (currentNote && getCurrentView() === 'editor') {
-      await saveNote(true);
-    }
+  if (currentNote && getCurrentView() === 'editor') {
+    await saveNote(true);
   }
 }
 
@@ -30,14 +25,24 @@ function openEditor(note) {
 
   container.innerHTML = `
     <div class="header">
-      <button class="btn btn-secondary" id="btn-back">Voltar</button>
+      <button class="btn btn-secondary btn-icon" id="btn-back" title="Voltar">${icons['arrow-left'](16)}</button>
       <div class="header-actions">
-        <button class="btn btn-secondary" id="btn-toggle-preview" title="Visualizar">${icons.eye(16)}</button>
-        <button class="btn btn-secondary" id="btn-copy-all" title="Copiar tudo">${icons.clipboard(16)}</button>
-        <button class="btn btn-secondary" id="btn-save-template" title="Salvar como template">${icons['file-text'](16)}</button>
-        ${note ? `<button class="btn btn-secondary" id="btn-versions" title="Historico de versoes">${icons.history(16)}</button>` : ''}
-        ${note ? `<button class="btn btn-secondary" id="btn-pin-note" title="Fixar na lista">${note.pinned ? icons['pin-filled'](16) : icons.pin(16)}</button>` : ''}
-        ${note ? `<button class="btn btn-danger" id="btn-delete-note">Excluir</button>` : ''}
+        ${note ? `<button class="btn btn-secondary btn-icon" id="btn-delete-note" title="Excluir">${icons.trash(16)}</button>` : ''}
+        <button class="btn btn-secondary btn-icon" id="btn-save-manual" title="Salvar (Ctrl+S)">${icons.save(16)}</button>
+        <div class="editor-menu">
+          <button class="btn btn-secondary btn-icon" id="btn-menu-toggle" title="Mais opcoes">${icons.list(16)}</button>
+          <div class="editor-menu-dropdown" id="editor-menu-dropdown">
+            <button class="editor-menu-item" data-action="copy">${icons.clipboard(14)} Copiar tudo</button>
+            <button class="editor-menu-item" data-action="template">${icons['file-text'](14)} Salvar como template</button>
+            ${note ? `<button class="editor-menu-item" data-action="versions">${icons.history(14)} Historico de versoes</button>` : ''}
+            ${note ? `<button class="editor-menu-item" data-action="pin">${note.pinned ? icons['pin-filled'](14) : icons.pin(14)} ${note.pinned ? 'Desafixar' : 'Fixar na lista'}</button>` : ''}
+          </div>
+        </div>
+        <!-- Hidden buttons for event handler delegation -->
+        <button id="btn-copy-all" style="display:none"></button>
+        <button id="btn-save-template" style="display:none"></button>
+        ${note ? `<button id="btn-versions" style="display:none"></button>` : ''}
+        ${note ? `<button id="btn-pin-note" style="display:none"></button>` : ''}
       </div>
     </div>
     <input type="text" class="note-title" id="note-title" value="${note ? escapeHtml(note.title) : ''}" placeholder="Titulo..." autofocus>
@@ -195,30 +200,40 @@ function openEditor(note) {
     }
   });
 
-  const autoSave = () => {
-    clearTimeout(saveTimeout);
+  // Manual save indicator
+  const showSaveStatus = (text, color) => {
     const status = document.getElementById('save-status');
-    if (status) {
-      status.textContent = 'Salvando...';
+    if (!status) return;
+    if (text === 'Salvando...') {
+      status.innerHTML = 'Salvando <span class="save-indicator"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span>';
       status.style.color = 'var(--text-secondary)';
-    }
-    saveTimeout = setTimeout(async () => {
-    const success = await saveNote(true);
-    if (status) {
-      if (success) {
-        status.textContent = 'Salvo';
-        status.style.color = 'var(--success)';
-      } else {
-        status.textContent = 'Erro ao salvar';
-        status.style.color = 'var(--error)';
+    } else {
+      status.textContent = text;
+      status.style.color = color;
+      if (text === 'Salvo') {
+        setTimeout(() => { if (status) status.textContent = ''; }, 2000);
       }
-      setTimeout(() => { if (status) status.textContent = ''; }, 2000);
     }
-  }, 1000);
   };
 
-  titleInput.addEventListener('input', autoSave);
-  contentInput.addEventListener('input', autoSave);
+  const doSave = () => {
+    showSaveStatus('Salvando...', 'var(--text-secondary)');
+    saveNote(true).then(success => {
+      showSaveStatus(success ? 'Salvo' : 'Erro ao salvar', success ? 'var(--success)' : 'var(--error)');
+    });
+  };
+
+  // Save button click
+  document.getElementById('btn-save-manual').addEventListener('click', doSave);
+
+  // Ctrl+S manual save
+  const ctrlSHandler = (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      e.preventDefault();
+      doSave();
+    }
+  };
+  document.addEventListener('keydown', ctrlSHandler);
 
   // Paste handler: images, sanitized HTML, plain text
   contentInput.addEventListener('paste', async (e) => {
@@ -302,7 +317,6 @@ function openEditor(note) {
   }
 
   document.getElementById('btn-back').addEventListener('click', () => {
-    clearTimeout(saveTimeout);
     saveNote(true).then(() => {
       setCurrentView('list');
       renderNotesList();
@@ -369,28 +383,32 @@ function openEditor(note) {
     }, 50);
   });
 
-  // Preview toggle
+  // Click outside editor -> preview mode; click inside -> edit mode
   let isPreviewMode = false;
   const editorWrapper = document.getElementById('editor-wrapper');
   const previewDiv = document.getElementById('markdown-preview');
-  const toggleBtn = document.getElementById('btn-toggle-preview');
 
-  toggleBtn.addEventListener('click', () => {
-    isPreviewMode = !isPreviewMode;
-    if (isPreviewMode) {
+  const previewClickHandler = (e) => {
+    const isInsideEditor = editorWrapper.contains(e.target) ||
+                           e.target.closest('.markdown-toolbar') ||
+                           e.target.closest('.header') ||
+                           e.target.closest('.form-row') ||
+                           e.target.closest('.note-title') ||
+                           e.target.closest('.versions-panel') ||
+                           e.target.closest('.editor-menu-dropdown');
+    if (!isInsideEditor && !isPreviewMode) {
+      isPreviewMode = true;
       editorWrapper.style.display = 'none';
       previewDiv.style.display = 'block';
       const md = htmlToMarkdown(contentInput.innerHTML);
       previewDiv.innerHTML = renderMarkdown(md);
-      toggleBtn.innerHTML = icons.edit(16);
-      toggleBtn.title = 'Editar';
-    } else {
+    } else if (isInsideEditor && isPreviewMode) {
+      isPreviewMode = false;
       editorWrapper.style.display = 'flex';
       previewDiv.style.display = 'none';
-      toggleBtn.innerHTML = icons.eye(16);
-      toggleBtn.title = 'Visualizar';
     }
-  });
+  };
+  document.addEventListener('mousedown', previewClickHandler);
 
   // Version history
   if (note) {
@@ -476,7 +494,6 @@ function openEditor(note) {
 
     document.getElementById('btn-delete-note').addEventListener('click', () => {
       showConfirm('Mover para lixeira?', async () => {
-        clearTimeout(saveTimeout);
         try {
           await api.trashNote(note.id);
           showToast('Nota movida para lixeira', 'success');
@@ -486,6 +503,27 @@ function openEditor(note) {
         setCurrentView('list');
         renderNotesList();
       });
+    });
+  }
+
+  // Dropdown menu
+  const menuToggle = document.getElementById('btn-menu-toggle');
+  const menuDropdown = document.getElementById('editor-menu-dropdown');
+  if (menuToggle && menuDropdown) {
+    menuToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      menuDropdown.classList.toggle('open');
+    });
+    document.addEventListener('click', () => menuDropdown.classList.remove('open'));
+    menuDropdown.addEventListener('click', (e) => {
+      const item = e.target.closest('.editor-menu-item');
+      if (!item) return;
+      menuDropdown.classList.remove('open');
+      const action = item.dataset.action;
+      if (action === 'copy') document.getElementById('btn-copy-all')?.click();
+      if (action === 'template') document.getElementById('btn-save-template')?.click();
+      if (action === 'versions') document.getElementById('btn-versions')?.click();
+      if (action === 'pin') document.getElementById('btn-pin-note')?.click();
     });
   }
 
