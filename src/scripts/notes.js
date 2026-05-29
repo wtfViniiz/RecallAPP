@@ -69,18 +69,18 @@ async function renderNotesList() {
   } catch (e) { console.warn('[Recall] Failed to load categories/tags:', e); }
 
   const catSelect = document.getElementById('filter-category');
-  let catOptionsHtml = '';
+  let catOptionsHtml = '<option value="">Todas categorias</option>';
   allCategories.forEach(c => {
     catOptionsHtml += `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`;
   });
-  catSelect.innerHTML += catOptionsHtml;
+  catSelect.innerHTML = catOptionsHtml;
 
   const tagSelect = document.getElementById('filter-tag');
-  let tagOptionsHtml = '';
+  let tagOptionsHtml = '<option value="">Todas tags</option>';
   allTags.forEach(t => {
     tagOptionsHtml += `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`;
   });
-  tagSelect.innerHTML += tagOptionsHtml;
+  tagSelect.innerHTML = tagOptionsHtml;
 
   document.getElementById('note-search').addEventListener('input', debounce(() => loadNotes(), 200));
   document.getElementById('filter-category').addEventListener('change', () => loadNotes());
@@ -259,6 +259,7 @@ async function loadRecentNotes() {
   }
 
   list.innerHTML = renderNoteCards(recent, '');
+  allLoadedNotes = recent;
   attachNoteCardHandlers(list, recent);
 }
 

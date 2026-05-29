@@ -285,13 +285,17 @@ async function openReminderForm(reminder) {
 }
 
 async function saveReminder() {
-  const title = document.getElementById('reminder-title').value.trim();
+  const titleEl = document.getElementById('reminder-title');
+  const descEl = document.getElementById('reminder-desc');
+  if (!titleEl || !descEl) return;
+
+  const title = titleEl.value.trim();
   if (!title) {
     showToast('Titulo e obrigatorio', 'warning');
     return;
   }
 
-  const description = document.getElementById('reminder-desc').value.trim() || null;
+  const description = descEl.value.trim() || null;
 
   // If editing, update all fields
   if (currentReminder) {
@@ -357,7 +361,7 @@ async function renderCalendarView() {
   const container = document.getElementById('view-reminders');
   let reminders;
   try {
-    const result = await api.getReminders({ status: 'pending' });
+    const result = await api.getReminders({ status: 'pending', limit: 1000 });
     reminders = result.items;
   } catch (e) {
     console.error('[Recall] Calendar load error:', e);
@@ -435,8 +439,9 @@ async function renderCalendarView() {
   container.innerHTML = calendarHtml;
 
   document.getElementById('btn-back-calendar').addEventListener('click', () => {
-    calendarYear = now.getFullYear();
-    calendarMonth = now.getMonth();
+    const freshNow = new Date();
+    calendarYear = freshNow.getFullYear();
+    calendarMonth = freshNow.getMonth();
     renderRemindersList();
   });
 
@@ -454,8 +459,9 @@ async function renderCalendarView() {
   });
 
   document.getElementById('btn-today-month').addEventListener('click', () => {
-    calendarYear = now.getFullYear();
-    calendarMonth = now.getMonth();
+    const freshNow = new Date();
+    calendarYear = freshNow.getFullYear();
+    calendarMonth = freshNow.getMonth();
     renderCalendarView();
   });
 
