@@ -21,6 +21,8 @@ fn make_note(id: &str, title: &str) -> Note {
         trashed: false,
         trashed_at: None,
         position: None,
+            temporary: false,
+            expires_at: None,
         schema_version: 1,
         created_at: "2026-05-28T10:00:00Z".to_string(),
         updated_at: "2026-05-28T10:00:00Z".to_string(),

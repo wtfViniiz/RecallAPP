@@ -76,7 +76,7 @@ impl Default for Config {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct NoteFilter {
     pub search: Option<String>,
     pub category: Option<String>,
@@ -171,6 +171,7 @@ mod tests {
             content: None,
             category: None,
             tags: None,
+            temporary: None,
         };
         assert_eq!(input.title, "Test");
         assert!(input.content.is_none());

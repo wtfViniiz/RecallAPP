@@ -75,6 +75,7 @@ pub fn create_note(app: AppHandle, cache: State<'_, NoteCache>, input: CreateNot
     }
 
     let now = Utc::now().to_rfc3339();
+    let is_temporary = input.temporary.unwrap_or(false);
     let note = Note {
         id: Uuid::new_v4().to_string(),
         title: input.title,
@@ -85,6 +86,12 @@ pub fn create_note(app: AppHandle, cache: State<'_, NoteCache>, input: CreateNot
         trashed: false,
         trashed_at: None,
         position: None,
+        temporary: is_temporary,
+        expires_at: if is_temporary {
+            Some((Utc::now() + chrono::Duration::hours(24)).to_rfc3339())
+        } else {
+            None
+        },
         schema_version: 1,
         created_at: now.clone(),
         updated_at: now,
@@ -801,6 +808,33 @@ pub fn import_data(app: AppHandle, cache: State<'_, NoteCache>, json_data: Strin
     } else {
         Ok(msg)
     }
+}
+
+#[tauri::command]
+pub fn cleanup_expired_temporary_notes(app: AppHandle, cache: State<'_, NoteCache>) -> Result<u32, String> {
+    let notes = cache.list_notes(&app, Some(NoteFilter {
+        limit: Some(1000),
+        ..Default::default()
+    }));
+    let now = Utc::now();
+    let mut count = 0;
+
+    for note in notes {
+        if !note.temporary || note.trashed { continue; }
+        if let Some(ref expires) = note.expires_at {
+            if let Ok(expires_at) = chrono::DateTime::parse_from_rfc3339(expires) {
+                if now >= expires_at {
+                    let mut updated = note.clone();
+                    updated.trashed = true;
+                    updated.trashed_at = Some(now.to_rfc3339());
+                    updated.updated_at = now.to_rfc3339();
+                    cache.save_note(&app, &updated)?;
+                    count += 1;
+                }
+            }
+        }
+    }
+    Ok(count)
 }
 
 #[cfg(test)]

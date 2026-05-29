@@ -66,6 +66,7 @@ fn main() {
             commands::get_custom_templates,
             commands::save_custom_template,
             commands::delete_custom_template,
+            commands::cleanup_expired_temporary_notes,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
