@@ -21,8 +21,8 @@ fn make_note(id: &str, title: &str) -> Note {
         trashed: false,
         trashed_at: None,
         position: None,
-            temporary: false,
-            expires_at: None,
+        temporary: false,
+        expires_at: None,
         schema_version: 1,
         created_at: "2026-05-28T10:00:00Z".to_string(),
         updated_at: "2026-05-28T10:00:00Z".to_string(),
@@ -97,7 +97,11 @@ fn test_save_version_prunes_beyond_20() {
     }
 
     let versions = storage::list_note_versions_at(&data_dir, "n1");
-    assert!(versions.len() <= 20, "Expected at most 20 versions, got {}", versions.len());
+    assert!(
+        versions.len() <= 20,
+        "Expected at most 20 versions, got {}",
+        versions.len()
+    );
 }
 
 #[test]
@@ -149,7 +153,11 @@ fn test_restore_version_saves_current_as_version_before_restoring() {
 
     // There should be now 2 versions: the original V1 backup and the V2 backup made before restore
     let versions_after = storage::list_note_versions_at(&data_dir, "n1");
-    assert!(versions_after.len() >= 2, "Expected at least 2 versions after restore, got {}", versions_after.len());
+    assert!(
+        versions_after.len() >= 2,
+        "Expected at least 2 versions after restore, got {}",
+        versions_after.len()
+    );
 }
 
 #[test]
@@ -233,7 +241,11 @@ fn test_version_preserves_all_note_fields() {
         title: "Title with special chars: <>&\"'".to_string(),
         content: "Content with **markdown** and unicode: acento".to_string(),
         category: Some("Categoria/Especial".to_string()),
-        tags: vec!["tag-1".to_string(), "tag_2".to_string(), "tag 3".to_string()],
+        tags: vec![
+            "tag-1".to_string(),
+            "tag_2".to_string(),
+            "tag 3".to_string(),
+        ],
         pinned: true,
         trashed: false,
         trashed_at: None,

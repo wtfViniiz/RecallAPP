@@ -27,11 +27,17 @@ fn advance_recurrence(dt: &DateTime<Utc>, repeat: &str) -> Option<DateTime<Utc>>
     match repeat {
         "daily" => {
             let naive = dt.naive_utc() + chrono::Duration::days(1);
-            Some(chrono::DateTime::from_naive_utc_and_offset(naive, *dt.offset()))
+            Some(chrono::DateTime::from_naive_utc_and_offset(
+                naive,
+                *dt.offset(),
+            ))
         }
         "weekly" => {
             let naive = dt.naive_utc() + chrono::Duration::weeks(1);
-            Some(chrono::DateTime::from_naive_utc_and_offset(naive, *dt.offset()))
+            Some(chrono::DateTime::from_naive_utc_and_offset(
+                naive,
+                *dt.offset(),
+            ))
         }
         "monthly" => {
             let (new_year, new_month) = if dt.month() == 12 {
@@ -144,7 +150,10 @@ fn check_and_fire(app: &AppHandle, cache: &NoteCache) {
                     }
                 }
                 if iterations >= MAX_CATCHUP_ITERATIONS {
-                    eprintln!("[Recall] Warning: reminder {} catch-up exceeded {} iterations", reminder.id, MAX_CATCHUP_ITERATIONS);
+                    eprintln!(
+                        "[Recall] Warning: reminder {} catch-up exceeded {} iterations",
+                        reminder.id, MAX_CATCHUP_ITERATIONS
+                    );
                 }
                 reminder.trigger_at = final_next.to_rfc3339();
 
@@ -173,26 +182,32 @@ mod tests {
 
     #[test]
     fn test_days_in_month_regular() {
-        assert_eq!(days_in_month(2026, 1), 31);  // January
-        assert_eq!(days_in_month(2026, 2), 28);  // February (non-leap)
-        assert_eq!(days_in_month(2026, 3), 31);  // March
-        assert_eq!(days_in_month(2026, 4), 30);  // April
+        assert_eq!(days_in_month(2026, 1), 31); // January
+        assert_eq!(days_in_month(2026, 2), 28); // February (non-leap)
+        assert_eq!(days_in_month(2026, 3), 31); // March
+        assert_eq!(days_in_month(2026, 4), 30); // April
         assert_eq!(days_in_month(2026, 12), 31); // December
     }
 
     #[test]
     fn test_days_in_month_leap_year() {
-        assert_eq!(days_in_month(2024, 2), 29);  // 2024 is leap
-        assert_eq!(days_in_month(2000, 2), 29);  // 2000 is leap
-        assert_eq!(days_in_month(1900, 2), 28);  // 1900 is NOT leap
-        assert_eq!(days_in_month(2025, 2), 28);  // 2025 is not leap
+        assert_eq!(days_in_month(2024, 2), 29); // 2024 is leap
+        assert_eq!(days_in_month(2000, 2), 29); // 2000 is leap
+        assert_eq!(days_in_month(1900, 2), 28); // 1900 is NOT leap
+        assert_eq!(days_in_month(2025, 2), 28); // 2025 is not leap
     }
 
     #[test]
     fn test_days_in_month_all_months() {
         let expected = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
         for (i, &days) in expected.iter().enumerate() {
-            assert_eq!(days_in_month(2026, (i + 1) as u32), days, "Month {} should have {} days", i + 1, days);
+            assert_eq!(
+                days_in_month(2026, (i + 1) as u32),
+                days,
+                "Month {} should have {} days",
+                i + 1,
+                days
+            );
         }
     }
 

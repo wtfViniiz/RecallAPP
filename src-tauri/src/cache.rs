@@ -72,7 +72,10 @@ impl NoteCache {
         if let Some(limit) = limit {
             notes.truncate(limit);
         }
-        PaginatedResult { items: notes, total }
+        PaginatedResult {
+            items: notes,
+            total,
+        }
     }
 
     pub fn list_all_notes(&self, app: &AppHandle) -> Vec<Note> {
@@ -86,9 +89,7 @@ impl NoteCache {
     }
 
     pub fn get_note(&self, app: &AppHandle, id: &str) -> Option<Note> {
-        self.with_notes(app, |notes| {
-            notes.iter().find(|n| n.id == id).cloned()
-        })
+        self.with_notes(app, |notes| notes.iter().find(|n| n.id == id).cloned())
     }
 
     pub fn save_note(&self, app: &AppHandle, note: &Note) -> Result<(), String> {

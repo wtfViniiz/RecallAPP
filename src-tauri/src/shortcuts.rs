@@ -7,7 +7,9 @@ pub fn resolve_shortcut_with_fallback(config_shortcut: &str) -> Shortcut {
     parse_shortcut(config_shortcut)
         .or_else(|| parse_shortcut("Ctrl+Alt+X"))
         .unwrap_or_else(|| {
-            eprintln!("WARNING: fallback shortcut 'Ctrl+Alt+X' failed to parse, using hardcoded shortcut");
+            eprintln!(
+                "WARNING: fallback shortcut 'Ctrl+Alt+X' failed to parse, using hardcoded shortcut"
+            );
             "Ctrl+Alt+X".parse().unwrap_or_else(|_| {
                 eprintln!("ERROR: all shortcut parsing failed, using Ctrl+X as last resort");
                 "Ctrl+X".parse().expect("Ctrl+X must parse")
@@ -19,11 +21,12 @@ pub fn register_shortcut(app: &tauri::App) -> Result<(), Box<dyn std::error::Err
     let config = storage::load_config(app.handle());
     let shortcut = resolve_shortcut_with_fallback(&config.shortcut);
 
-    app.global_shortcut().on_shortcut(shortcut, |app, _shortcut, event| {
-        if event.state == tauri_plugin_global_shortcut::ShortcutState::Pressed {
-            toggle_main_window(app);
-        }
-    })?;
+    app.global_shortcut()
+        .on_shortcut(shortcut, |app, _shortcut, event| {
+            if event.state == tauri_plugin_global_shortcut::ShortcutState::Pressed {
+                toggle_main_window(app);
+            }
+        })?;
 
     // Register new note shortcut if configured
     register_new_note_shortcut(app, &config.new_note_shortcut)?;
@@ -31,7 +34,10 @@ pub fn register_shortcut(app: &tauri::App) -> Result<(), Box<dyn std::error::Err
     Ok(())
 }
 
-fn register_new_note_shortcut(app: &tauri::App, shortcut_str: &str) -> Result<(), Box<dyn std::error::Error>> {
+fn register_new_note_shortcut(
+    app: &tauri::App,
+    shortcut_str: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
     if shortcut_str.is_empty() {
         return Ok(());
     }
@@ -124,9 +130,18 @@ mod tests {
 
     #[test]
     fn normalizes_modifiers() {
-        assert_eq!(normalize_shortcut("ctrl+alt+x"), Some("Ctrl+Alt+x".to_string()));
-        assert_eq!(normalize_shortcut("CONTROL+ALT+x"), Some("Ctrl+Alt+x".to_string()));
-        assert_eq!(normalize_shortcut("shift+shift+x"), Some("Shift+Shift+x".to_string()));
+        assert_eq!(
+            normalize_shortcut("ctrl+alt+x"),
+            Some("Ctrl+Alt+x".to_string())
+        );
+        assert_eq!(
+            normalize_shortcut("CONTROL+ALT+x"),
+            Some("Ctrl+Alt+x".to_string())
+        );
+        assert_eq!(
+            normalize_shortcut("shift+shift+x"),
+            Some("Shift+Shift+x".to_string())
+        );
     }
 
     #[test]
@@ -140,15 +155,42 @@ mod tests {
 
     #[test]
     fn normalizes_special_keys() {
-        assert_eq!(normalize_shortcut("ctrl+esc"), Some("Ctrl+Escape".to_string()));
-        assert_eq!(normalize_shortcut("ctrl+return"), Some("Ctrl+Enter".to_string()));
-        assert_eq!(normalize_shortcut("ctrl+del"), Some("Ctrl+Delete".to_string()));
-        assert_eq!(normalize_shortcut("ctrl+pgup"), Some("Ctrl+PageUp".to_string()));
-        assert_eq!(normalize_shortcut("ctrl+pgdn"), Some("Ctrl+PageDown".to_string()));
-        assert_eq!(normalize_shortcut("ctrl+up"), Some("Ctrl+ArrowUp".to_string()));
-        assert_eq!(normalize_shortcut("ctrl+down"), Some("Ctrl+ArrowDown".to_string()));
-        assert_eq!(normalize_shortcut("ctrl+left"), Some("Ctrl+ArrowLeft".to_string()));
-        assert_eq!(normalize_shortcut("ctrl+right"), Some("Ctrl+ArrowRight".to_string()));
+        assert_eq!(
+            normalize_shortcut("ctrl+esc"),
+            Some("Ctrl+Escape".to_string())
+        );
+        assert_eq!(
+            normalize_shortcut("ctrl+return"),
+            Some("Ctrl+Enter".to_string())
+        );
+        assert_eq!(
+            normalize_shortcut("ctrl+del"),
+            Some("Ctrl+Delete".to_string())
+        );
+        assert_eq!(
+            normalize_shortcut("ctrl+pgup"),
+            Some("Ctrl+PageUp".to_string())
+        );
+        assert_eq!(
+            normalize_shortcut("ctrl+pgdn"),
+            Some("Ctrl+PageDown".to_string())
+        );
+        assert_eq!(
+            normalize_shortcut("ctrl+up"),
+            Some("Ctrl+ArrowUp".to_string())
+        );
+        assert_eq!(
+            normalize_shortcut("ctrl+down"),
+            Some("Ctrl+ArrowDown".to_string())
+        );
+        assert_eq!(
+            normalize_shortcut("ctrl+left"),
+            Some("Ctrl+ArrowLeft".to_string())
+        );
+        assert_eq!(
+            normalize_shortcut("ctrl+right"),
+            Some("Ctrl+ArrowRight".to_string())
+        );
     }
 
     #[test]
@@ -180,7 +222,10 @@ mod tests {
 
     #[test]
     fn handles_whitespace() {
-        assert_eq!(normalize_shortcut(" Ctrl + Alt + X "), Some("Ctrl+Alt+X".to_string()));
+        assert_eq!(
+            normalize_shortcut(" Ctrl + Alt + X "),
+            Some("Ctrl+Alt+X".to_string())
+        );
     }
 
     #[test]

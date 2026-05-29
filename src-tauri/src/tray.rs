@@ -1,14 +1,15 @@
+use crate::window::{show_main_window, toggle_main_window};
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     App, Manager,
 };
-use crate::window::{show_main_window, toggle_main_window};
 
 pub fn setup_tray(app: &App) -> Result<tauri::tray::TrayIcon, Box<dyn std::error::Error>> {
     let open_i = MenuItem::with_id(app, "open", "Abrir", true, None::<&str>)?;
     let new_note_i = MenuItem::with_id(app, "new_note", "Nova Nota", true, None::<&str>)?;
-    let new_reminder_i = MenuItem::with_id(app, "new_reminder", "Novo Lembrete", true, None::<&str>)?;
+    let new_reminder_i =
+        MenuItem::with_id(app, "new_reminder", "Novo Lembrete", true, None::<&str>)?;
     let settings_i = MenuItem::with_id(app, "settings", "Configuracoes", true, None::<&str>)?;
     let quit_i = MenuItem::with_id(app, "quit", "Sair", true, None::<&str>)?;
 
@@ -17,10 +18,7 @@ pub fn setup_tray(app: &App) -> Result<tauri::tray::TrayIcon, Box<dyn std::error
         &[&open_i, &new_note_i, &new_reminder_i, &settings_i, &quit_i],
     )?;
 
-    let icon = app
-        .default_window_icon()
-        .ok_or("Icon not found")?
-        .clone();
+    let icon = app.default_window_icon().ok_or("Icon not found")?.clone();
 
     let tray = TrayIconBuilder::new()
         .icon(icon)

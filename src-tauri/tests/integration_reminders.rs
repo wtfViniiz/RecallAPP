@@ -109,7 +109,10 @@ fn test_reminder_with_description() {
     storage::save_reminder_at(&data_dir, &reminder).unwrap();
 
     let fetched = storage::get_reminder_at(&data_dir, "r1").unwrap();
-    assert_eq!(fetched.description, Some("This is a description".to_string()));
+    assert_eq!(
+        fetched.description,
+        Some("This is a description".to_string())
+    );
 }
 
 #[test]

@@ -53,15 +53,13 @@ fn test_save_and_load_templates_roundtrip() {
 #[test]
 fn test_save_empty_list_load_empty() {
     let (_tmp, data_dir) = setup();
-    let templates: Vec<CustomTemplate> = vec![
-        CustomTemplate {
-            id: "t1".to_string(),
-            name: "Existing".to_string(),
-            title: "Title".to_string(),
-            content: "Content".to_string(),
-            icon: None,
-        },
-    ];
+    let templates: Vec<CustomTemplate> = vec![CustomTemplate {
+        id: "t1".to_string(),
+        name: "Existing".to_string(),
+        title: "Title".to_string(),
+        content: "Content".to_string(),
+        icon: None,
+    }];
     storage::save_custom_templates_at(&data_dir, &templates).unwrap();
     assert_eq!(storage::load_custom_templates_at(&data_dir).len(), 1);
 
@@ -76,15 +74,13 @@ fn test_save_empty_list_load_empty() {
 fn test_templates_overwrite() {
     let (_tmp, data_dir) = setup();
 
-    let templates1 = vec![
-        CustomTemplate {
-            id: "t1".to_string(),
-            name: "First".to_string(),
-            title: "First Title".to_string(),
-            content: "First Content".to_string(),
-            icon: None,
-        },
-    ];
+    let templates1 = vec![CustomTemplate {
+        id: "t1".to_string(),
+        name: "First".to_string(),
+        title: "First Title".to_string(),
+        content: "First Content".to_string(),
+        icon: None,
+    }];
     storage::save_custom_templates_at(&data_dir, &templates1).unwrap();
 
     let templates2 = vec![
@@ -115,15 +111,13 @@ fn test_templates_overwrite() {
 #[test]
 fn test_template_with_special_characters() {
     let (_tmp, data_dir) = setup();
-    let templates = vec![
-        CustomTemplate {
-            id: "t1".to_string(),
-            name: "Template com acentos: ação, não, são".to_string(),
-            title: "Título com <html> & \"aspas\"".to_string(),
-            content: "Conteúdo com\nnewlines\te\ttabs".to_string(),
-            icon: Some("icon-with-dashes_and_underscores".to_string()),
-        },
-    ];
+    let templates = vec![CustomTemplate {
+        id: "t1".to_string(),
+        name: "Template com acentos: ação, não, são".to_string(),
+        title: "Título com <html> & \"aspas\"".to_string(),
+        content: "Conteúdo com\nnewlines\te\ttabs".to_string(),
+        icon: Some("icon-with-dashes_and_underscores".to_string()),
+    }];
     storage::save_custom_templates_at(&data_dir, &templates).unwrap();
     let loaded = storage::load_custom_templates_at(&data_dir);
 

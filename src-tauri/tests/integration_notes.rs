@@ -21,8 +21,8 @@ fn make_note(id: &str, title: &str) -> Note {
         trashed: false,
         trashed_at: None,
         position: None,
-            temporary: false,
-            expires_at: None,
+        temporary: false,
+        expires_at: None,
         schema_version: 1,
         created_at: "2026-05-28T10:00:00Z".to_string(),
         updated_at: "2026-05-28T10:00:00Z".to_string(),
@@ -106,7 +106,9 @@ fn test_search_filter() {
     };
     let notes = storage::list_notes_at(&data_dir, Some(filter));
     assert_eq!(notes.len(), 2);
-    assert!(notes.iter().all(|n| n.title.to_lowercase().contains("rust")));
+    assert!(notes
+        .iter()
+        .all(|n| n.title.to_lowercase().contains("rust")));
 }
 
 #[test]
@@ -238,7 +240,11 @@ fn test_empty_directory() {
 fn test_pagination_limit() {
     let (_tmp, data_dir) = setup();
     for i in 0..10 {
-        storage::save_note_at(&data_dir, &make_note(&format!("n{}", i), &format!("Note {}", i))).unwrap();
+        storage::save_note_at(
+            &data_dir,
+            &make_note(&format!("n{}", i), &format!("Note {}", i)),
+        )
+        .unwrap();
     }
 
     let filter = NoteFilter {
@@ -256,7 +262,11 @@ fn test_pagination_limit() {
 fn test_pagination_offset() {
     let (_tmp, data_dir) = setup();
     for i in 0..10 {
-        storage::save_note_at(&data_dir, &make_note(&format!("n{}", i), &format!("Note {}", i))).unwrap();
+        storage::save_note_at(
+            &data_dir,
+            &make_note(&format!("n{}", i), &format!("Note {}", i)),
+        )
+        .unwrap();
     }
 
     let filter = NoteFilter {
@@ -274,7 +284,11 @@ fn test_pagination_offset() {
 fn test_pagination_offset_and_limit() {
     let (_tmp, data_dir) = setup();
     for i in 0..10 {
-        storage::save_note_at(&data_dir, &make_note(&format!("n{}", i), &format!("Note {}", i))).unwrap();
+        storage::save_note_at(
+            &data_dir,
+            &make_note(&format!("n{}", i), &format!("Note {}", i)),
+        )
+        .unwrap();
     }
 
     // Page 1: offset=0, limit=3
@@ -333,7 +347,11 @@ fn test_pagination_offset_and_limit() {
 fn test_pagination_offset_beyond_total() {
     let (_tmp, data_dir) = setup();
     for i in 0..5 {
-        storage::save_note_at(&data_dir, &make_note(&format!("n{}", i), &format!("Note {}", i))).unwrap();
+        storage::save_note_at(
+            &data_dir,
+            &make_note(&format!("n{}", i), &format!("Note {}", i)),
+        )
+        .unwrap();
     }
 
     let filter = NoteFilter {

@@ -21,8 +21,8 @@ fn make_note(id: &str, title: &str) -> Note {
         trashed: false,
         trashed_at: None,
         position: None,
-            temporary: false,
-            expires_at: None,
+        temporary: false,
+        expires_at: None,
         schema_version: 1,
         created_at: "2026-05-28T10:00:00Z".to_string(),
         updated_at: "2026-05-28T10:00:00Z".to_string(),
@@ -44,8 +44,8 @@ fn test_note_with_max_length_title() {
         trashed: false,
         trashed_at: None,
         position: None,
-            temporary: false,
-            expires_at: None,
+        temporary: false,
+        expires_at: None,
         schema_version: 1,
         created_at: "2026-05-28T10:00:00Z".to_string(),
         updated_at: "2026-05-28T10:00:00Z".to_string(),
@@ -67,8 +67,8 @@ fn test_note_with_unicode_content() {
         trashed: false,
         trashed_at: None,
         position: None,
-            temporary: false,
-            expires_at: None,
+        temporary: false,
+        expires_at: None,
         schema_version: 1,
         created_at: "2026-05-28T10:00:00Z".to_string(),
         updated_at: "2026-05-28T10:00:00Z".to_string(),
@@ -92,8 +92,8 @@ fn test_note_with_special_json_chars() {
         trashed: false,
         trashed_at: None,
         position: None,
-            temporary: false,
-            expires_at: None,
+        temporary: false,
+        expires_at: None,
         schema_version: 1,
         created_at: "2026-05-28T10:00:00Z".to_string(),
         updated_at: "2026-05-28T10:00:00Z".to_string(),
@@ -116,8 +116,8 @@ fn test_note_with_many_tags() {
         trashed: false,
         trashed_at: None,
         position: None,
-            temporary: false,
-            expires_at: None,
+        temporary: false,
+        expires_at: None,
         schema_version: 1,
         created_at: "2026-05-28T10:00:00Z".to_string(),
         updated_at: "2026-05-28T10:00:00Z".to_string(),
@@ -352,7 +352,8 @@ fn test_template_crud_full_cycle() {
     assert_eq!(updated.name, "Updated");
 
     // Delete t2
-    let after_delete: Vec<CustomTemplate> = after_update.into_iter().filter(|t| t.id != "t2").collect();
+    let after_delete: Vec<CustomTemplate> =
+        after_update.into_iter().filter(|t| t.id != "t2").collect();
     storage::save_custom_templates_at(&data_dir, &after_delete).unwrap();
 
     let final_templates = storage::load_custom_templates_at(&data_dir);

@@ -12,7 +12,10 @@ use uuid::Uuid;
 fn validate_string(s: &str, max_len: usize, field_name: &str) -> Result<(), String> {
     let char_count = s.chars().count();
     if char_count > max_len {
-        return Err(format!("{} excede {} caracteres (tem {})", field_name, max_len, char_count));
+        return Err(format!(
+            "{} excede {} caracteres (tem {})",
+            field_name, max_len, char_count
+        ));
     }
     Ok(())
 }
@@ -35,7 +38,10 @@ fn validate_id(id: &str) -> Result<(), String> {
         return Err(format!("ID excede 100 caracteres (tem {})", char_count));
     }
     // Whitelist: only alphanumeric, hyphen, underscore (UUIDs)
-    if !id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') {
+    if !id
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    {
         return Err("ID contem caracteres invalidos".to_string());
     }
     Ok(())
@@ -51,13 +57,21 @@ pub fn get_notes(
 }
 
 #[tauri::command]
-pub fn get_note(app: AppHandle, cache: State<'_, NoteCache>, id: String) -> Result<Option<Note>, String> {
+pub fn get_note(
+    app: AppHandle,
+    cache: State<'_, NoteCache>,
+    id: String,
+) -> Result<Option<Note>, String> {
     validate_id(&id)?;
     Ok(cache.get_note(&app, &id))
 }
 
 #[tauri::command]
-pub fn create_note(app: AppHandle, cache: State<'_, NoteCache>, input: CreateNote) -> Result<Note, String> {
+pub fn create_note(
+    app: AppHandle,
+    cache: State<'_, NoteCache>,
+    input: CreateNote,
+) -> Result<Note, String> {
     validate_string(&input.title, 500, "Titulo")?;
     if let Some(ref content) = input.content {
         validate_string(content, 100_000, "Conteudo")?;
@@ -101,7 +115,11 @@ pub fn create_note(app: AppHandle, cache: State<'_, NoteCache>, input: CreateNot
 }
 
 #[tauri::command]
-pub fn update_note(app: AppHandle, cache: State<'_, NoteCache>, input: UpdateNote) -> Result<Note, String> {
+pub fn update_note(
+    app: AppHandle,
+    cache: State<'_, NoteCache>,
+    input: UpdateNote,
+) -> Result<Note, String> {
     validate_id(&input.id)?;
     if let Some(ref title) = input.title {
         validate_string(title, 500, "Titulo")?;
@@ -121,10 +139,14 @@ pub fn update_note(app: AppHandle, cache: State<'_, NoteCache>, input: UpdateNot
         }
     }
 
-    let note = cache.get_note(&app, &input.id).ok_or("Nota nao encontrada")?;
+    let note = cache
+        .get_note(&app, &input.id)
+        .ok_or("Nota nao encontrada")?;
     // Save version snapshot only when content changes (skip for position/pinned-only updates)
-    let has_content_change = input.title.is_some() || input.content.is_some()
-        || input.category.is_some() || input.tags.is_some();
+    let has_content_change = input.title.is_some()
+        || input.content.is_some()
+        || input.category.is_some()
+        || input.tags.is_some();
     if has_content_change {
         if let Err(e) = storage::save_note_version(&app, &note) {
             eprintln!("[Recall] Aviso: falha ao salvar versao: {}", e);
@@ -138,7 +160,11 @@ pub fn update_note(app: AppHandle, cache: State<'_, NoteCache>, input: UpdateNot
         note.content = content;
     }
     if let Some(category) = input.category {
-        note.category = if category.is_empty() { None } else { Some(category) };
+        note.category = if category.is_empty() {
+            None
+        } else {
+            Some(category)
+        };
     }
     if let Some(tags) = input.tags {
         note.tags = tags;
@@ -191,7 +217,10 @@ pub fn empty_trash(app: AppHandle, cache: State<'_, NoteCache>) -> Result<u32, S
         }
     }
     if !errors.is_empty() {
-        eprintln!("[Recall] Aviso: erros ao esvaziar lixeira: {}", errors.join("; "));
+        eprintln!(
+            "[Recall] Aviso: erros ao esvaziar lixeira: {}",
+            errors.join("; ")
+        );
     }
     Ok(count - errors.len() as u32)
 }
@@ -216,7 +245,11 @@ pub fn get_reminders(
 }
 
 #[tauri::command]
-pub fn create_reminder(app: AppHandle, cache: State<'_, NoteCache>, input: CreateReminder) -> Result<Reminder, String> {
+pub fn create_reminder(
+    app: AppHandle,
+    cache: State<'_, NoteCache>,
+    input: CreateReminder,
+) -> Result<Reminder, String> {
     validate_string(&input.title, 500, "Titulo")?;
     if let Some(ref desc) = input.description {
         validate_string(desc, 2000, "Descricao")?;
@@ -239,7 +272,10 @@ pub fn create_reminder(app: AppHandle, cache: State<'_, NoteCache>, input: Creat
     if let Some(ref repeat) = input.repeat {
         let valid_repeats = ["daily", "weekly", "monthly"];
         if !valid_repeats.contains(&repeat.as_str()) {
-            return Err(format!("Repeat invalido: '{}'. Use: {:?}", repeat, valid_repeats));
+            return Err(format!(
+                "Repeat invalido: '{}'. Use: {:?}",
+                repeat, valid_repeats
+            ));
         }
     }
 
@@ -265,7 +301,11 @@ pub fn create_reminder(app: AppHandle, cache: State<'_, NoteCache>, input: Creat
 }
 
 #[tauri::command]
-pub fn update_reminder(app: AppHandle, cache: State<'_, NoteCache>, input: UpdateReminder) -> Result<Reminder, String> {
+pub fn update_reminder(
+    app: AppHandle,
+    cache: State<'_, NoteCache>,
+    input: UpdateReminder,
+) -> Result<Reminder, String> {
     validate_id(&input.id)?;
     if let Some(ref title) = input.title {
         validate_string(title, 500, "Titulo")?;
@@ -281,7 +321,11 @@ pub fn update_reminder(app: AppHandle, cache: State<'_, NoteCache>, input: Updat
         reminder.title = title;
     }
     if let Some(description) = input.description {
-        reminder.description = if description.is_empty() { None } else { Some(description) };
+        reminder.description = if description.is_empty() {
+            None
+        } else {
+            Some(description)
+        };
     }
     if let Some(status) = input.status {
         let valid_statuses = ["pending", "fired", "dismissed"];
@@ -294,8 +338,12 @@ pub fn update_reminder(app: AppHandle, cache: State<'_, NoteCache>, input: Updat
         reminder.status = status;
     }
     if let Some(ref trigger_at) = input.trigger_at {
-        chrono::DateTime::parse_from_rfc3339(trigger_at)
-            .map_err(|_| format!("trigger_at invalido: '{}'. Use formato ISO 8601 (ex: 2026-01-01T12:00:00Z)", trigger_at))?;
+        chrono::DateTime::parse_from_rfc3339(trigger_at).map_err(|_| {
+            format!(
+                "trigger_at invalido: '{}'. Use formato ISO 8601 (ex: 2026-01-01T12:00:00Z)",
+                trigger_at
+            )
+        })?;
         reminder.trigger_at = trigger_at.clone();
     }
     if let Some(repeat) = input.repeat {
@@ -326,13 +374,21 @@ pub fn update_reminder(app: AppHandle, cache: State<'_, NoteCache>, input: Updat
 }
 
 #[tauri::command]
-pub fn delete_reminder(app: AppHandle, cache: State<'_, NoteCache>, id: String) -> Result<(), String> {
+pub fn delete_reminder(
+    app: AppHandle,
+    cache: State<'_, NoteCache>,
+    id: String,
+) -> Result<(), String> {
     validate_id(&id)?;
     cache.delete_reminder(&app, &id)
 }
 
 #[tauri::command]
-pub fn dismiss_reminder(app: AppHandle, cache: State<'_, NoteCache>, id: String) -> Result<(), String> {
+pub fn dismiss_reminder(
+    app: AppHandle,
+    cache: State<'_, NoteCache>,
+    id: String,
+) -> Result<(), String> {
     validate_id(&id)?;
     let mut reminder = cache
         .get_reminder(&app, &id)
@@ -342,7 +398,12 @@ pub fn dismiss_reminder(app: AppHandle, cache: State<'_, NoteCache>, id: String)
 }
 
 #[tauri::command]
-pub fn snooze_reminder(app: AppHandle, cache: State<'_, NoteCache>, id: String, minutes: i64) -> Result<(), String> {
+pub fn snooze_reminder(
+    app: AppHandle,
+    cache: State<'_, NoteCache>,
+    id: String,
+    minutes: i64,
+) -> Result<(), String> {
     validate_id(&id)?;
     if minutes < 1 || minutes > 10080 {
         return Err("Snooze deve ser entre 1 minuto e 7 dias".to_string());
@@ -370,7 +431,10 @@ pub fn get_app_version(app: AppHandle) -> String {
 pub fn update_config(app: AppHandle, input: Config) -> Result<Config, String> {
     let valid_themes = ["dark", "light"];
     if !valid_themes.contains(&input.theme.as_str()) {
-        return Err(format!("Tema invalido: {}. Use: {:?}", input.theme, valid_themes));
+        return Err(format!(
+            "Tema invalido: {}. Use: {:?}",
+            input.theme, valid_themes
+        ));
     }
     if input.window_width < 300 || input.window_width > 3840 {
         return Err("Largura da janela deve estar entre 300 e 3840".to_string());
@@ -382,14 +446,20 @@ pub fn update_config(app: AppHandle, input: Config) -> Result<Config, String> {
         return Err("Atalho invalido".to_string());
     }
     if parse_shortcut(&input.shortcut).is_none() {
-        return Err(format!("Formato de atalho invalido: '{}'. Use ex: Ctrl+Alt+N", input.shortcut));
+        return Err(format!(
+            "Formato de atalho invalido: '{}'. Use ex: Ctrl+Alt+N",
+            input.shortcut
+        ));
     }
     if !input.new_note_shortcut.is_empty() {
         if input.new_note_shortcut.len() > 50 {
             return Err("Atalho de nova nota invalido".to_string());
         }
         if parse_shortcut(&input.new_note_shortcut).is_none() {
-            return Err(format!("Formato de atalho de nova nota invalido: '{}'", input.new_note_shortcut));
+            return Err(format!(
+                "Formato de atalho de nova nota invalido: '{}'",
+                input.new_note_shortcut
+            ));
         }
     }
     storage::save_config(&app, &input)?;
@@ -399,11 +469,14 @@ pub fn update_config(app: AppHandle, input: Config) -> Result<Config, String> {
         eprintln!("[Recall] Aviso: falha ao desregistrar atalhos: {}", e);
     }
     let main_shortcut = resolve_shortcut_with_fallback(&input.shortcut);
-    if let Err(e) = app.global_shortcut().on_shortcut(main_shortcut, |app, _shortcut, event| {
-        if event.state == tauri_plugin_global_shortcut::ShortcutState::Pressed {
-            toggle_main_window(app);
-        }
-    }) {
+    if let Err(e) = app
+        .global_shortcut()
+        .on_shortcut(main_shortcut, |app, _shortcut, event| {
+            if event.state == tauri_plugin_global_shortcut::ShortcutState::Pressed {
+                toggle_main_window(app);
+            }
+        })
+    {
         eprintln!("[Recall] Aviso: falha ao registrar atalho principal: {}", e);
     }
     if !input.new_note_shortcut.is_empty() {
@@ -472,11 +545,7 @@ pub fn set_always_on_top(app: AppHandle, pinned: bool) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn save_image(
-    app: AppHandle,
-    base64_data: String,
-    note_id: String,
-) -> Result<String, String> {
+pub fn save_image(app: AppHandle, base64_data: String, note_id: String) -> Result<String, String> {
     use base64::Engine;
 
     validate_id(&note_id)?;
@@ -516,10 +585,13 @@ pub fn save_image(
         "jpg"
     } else if data.len() >= 4 && data[0..4] == [0x47, 0x49, 0x46, 0x38] {
         "gif"
-    } else if data.len() >= 12 && data[0..4] == [0x52, 0x49, 0x46, 0x46] && data[8..12] == [0x57, 0x45, 0x42, 0x50] {
+    } else if data.len() >= 12
+        && data[0..4] == [0x52, 0x49, 0x46, 0x46]
+        && data[8..12] == [0x57, 0x45, 0x42, 0x50]
+    {
         "webp"
     } else {
-        return Err("Formato de imagem nao suportado".to_string())
+        return Err("Formato de imagem nao suportado".to_string());
     };
 
     let filename = format!("{}_{}.{}", safe_id, Uuid::new_v4(), ext);
@@ -614,7 +686,12 @@ pub fn list_note_versions(app: AppHandle, note_id: String) -> Result<Vec<NoteVer
 }
 
 #[tauri::command]
-pub fn restore_note_version(app: AppHandle, cache: State<'_, NoteCache>, note_id: String, version_id: String) -> Result<Note, String> {
+pub fn restore_note_version(
+    app: AppHandle,
+    cache: State<'_, NoteCache>,
+    note_id: String,
+    version_id: String,
+) -> Result<Note, String> {
     validate_id(&note_id)?;
     validate_id(&version_id)?;
     let note = storage::restore_note_version(&app, &note_id, &version_id)?;
@@ -628,7 +705,10 @@ pub fn get_custom_templates(app: AppHandle) -> Vec<CustomTemplate> {
 }
 
 #[tauri::command]
-pub fn save_custom_template(app: AppHandle, input: CustomTemplate) -> Result<CustomTemplate, String> {
+pub fn save_custom_template(
+    app: AppHandle,
+    input: CustomTemplate,
+) -> Result<CustomTemplate, String> {
     validate_string(&input.name, 100, "Nome do template")?;
     validate_string(&input.id, 100, "ID do template")?;
     validate_string(&input.title, 500, "Titulo do template")?;
@@ -673,7 +753,11 @@ pub fn export_data(app: AppHandle) -> Result<String, String> {
 }
 
 #[tauri::command]
-pub fn import_data(app: AppHandle, cache: State<'_, NoteCache>, json_data: String) -> Result<String, String> {
+pub fn import_data(
+    app: AppHandle,
+    cache: State<'_, NoteCache>,
+    json_data: String,
+) -> Result<String, String> {
     const MAX_IMPORT_SIZE: usize = 50 * 1024 * 1024; // 50MB
     if json_data.len() > MAX_IMPORT_SIZE {
         return Err("Arquivo de importacao excede 50MB".to_string());
@@ -811,16 +895,24 @@ pub fn import_data(app: AppHandle, cache: State<'_, NoteCache>, json_data: Strin
 }
 
 #[tauri::command]
-pub fn cleanup_expired_temporary_notes(app: AppHandle, cache: State<'_, NoteCache>) -> Result<u32, String> {
-    let notes = cache.list_notes(&app, Some(NoteFilter {
-        limit: Some(1000),
-        ..Default::default()
-    }));
+pub fn cleanup_expired_temporary_notes(
+    app: AppHandle,
+    cache: State<'_, NoteCache>,
+) -> Result<u32, String> {
+    let notes = cache.list_notes(
+        &app,
+        Some(NoteFilter {
+            limit: Some(1000),
+            ..Default::default()
+        }),
+    );
     let now = Utc::now();
     let mut count = 0;
 
     for note in notes {
-        if !note.temporary || note.trashed { continue; }
+        if !note.temporary || note.trashed {
+            continue;
+        }
         if let Some(ref expires) = note.expires_at {
             if let Ok(expires_at) = chrono::DateTime::parse_from_rfc3339(expires) {
                 if now >= expires_at {

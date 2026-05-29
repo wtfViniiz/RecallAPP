@@ -15,9 +15,18 @@ fn data_dir(app_handle: &tauri::AppHandle) -> PathBuf {
             let fallback = std::env::var("LOCALAPPDATA")
                 .or_else(|_| std::env::var("XDG_DATA_HOME"))
                 .map(PathBuf::from)
-                .unwrap_or_else(|_| app_handle.path().home_dir().unwrap_or_else(|_| PathBuf::from(".")))
-                .join("Recall").join("data");
-            eprintln!("[Recall] Erro ao obter diretorio de dados: {}. Usando fallback: {:?}", e, fallback);
+                .unwrap_or_else(|_| {
+                    app_handle
+                        .path()
+                        .home_dir()
+                        .unwrap_or_else(|_| PathBuf::from("."))
+                })
+                .join("Recall")
+                .join("data");
+            eprintln!(
+                "[Recall] Erro ao obter diretorio de dados: {}. Usando fallback: {:?}",
+                e, fallback
+            );
             fallback
         }
     };
@@ -46,7 +55,6 @@ fn data_dir(app_handle: &tauri::AppHandle) -> PathBuf {
     }
     dir
 }
-
 
 /// Ensure data directories exist (for test and non-AppHandle usage)
 pub fn ensure_dirs(data_dir: &Path) {
@@ -173,20 +181,31 @@ fn load_all_notes_from_dir(data_dir: &Path) -> Vec<Note> {
             let content = match fs::read_to_string(entry.path()) {
                 Ok(c) => c,
                 Err(e) => {
-                    eprintln!("[Recall] Warning: cannot read {}: {}", entry.path().display(), e);
+                    eprintln!(
+                        "[Recall] Warning: cannot read {}: {}",
+                        entry.path().display(),
+                        e
+                    );
                     return None;
                 }
             };
             let mut note: Note = match serde_json::from_str(&content) {
                 Ok(n) => n,
                 Err(e) => {
-                    eprintln!("[Recall] Warning: invalid JSON in {}: {}", entry.path().display(), e);
+                    eprintln!(
+                        "[Recall] Warning: invalid JSON in {}: {}",
+                        entry.path().display(),
+                        e
+                    );
                     return None;
                 }
             };
             if migrate_note(&mut note) {
                 if let Err(e) = save_note_at(data_dir, &note) {
-                    eprintln!("[Recall] Warning: failed to save migrated note {}: {}", note.id, e);
+                    eprintln!(
+                        "[Recall] Warning: failed to save migrated note {}: {}",
+                        note.id, e
+                    );
                 }
             }
             Some(note)
@@ -210,20 +229,31 @@ fn load_all_reminders_from_dir(data_dir: &Path) -> Vec<Reminder> {
             let content = match fs::read_to_string(entry.path()) {
                 Ok(c) => c,
                 Err(e) => {
-                    eprintln!("[Recall] Warning: cannot read {}: {}", entry.path().display(), e);
+                    eprintln!(
+                        "[Recall] Warning: cannot read {}: {}",
+                        entry.path().display(),
+                        e
+                    );
                     return None;
                 }
             };
             let mut reminder: Reminder = match serde_json::from_str(&content) {
                 Ok(r) => r,
                 Err(e) => {
-                    eprintln!("[Recall] Warning: invalid JSON in {}: {}", entry.path().display(), e);
+                    eprintln!(
+                        "[Recall] Warning: invalid JSON in {}: {}",
+                        entry.path().display(),
+                        e
+                    );
                     return None;
                 }
             };
             if migrate_reminder(&mut reminder) {
                 if let Err(e) = save_reminder_at(data_dir, &reminder) {
-                    eprintln!("[Recall] Warning: failed to save migrated reminder {}: {}", reminder.id, e);
+                    eprintln!(
+                        "[Recall] Warning: failed to save migrated reminder {}: {}",
+                        reminder.id, e
+                    );
                 }
             }
             Some(reminder)
@@ -283,13 +313,20 @@ pub fn get_note_at(data_dir: &Path, id: &str) -> Option<Note> {
     let mut note: Note = match serde_json::from_str(&content) {
         Ok(n) => n,
         Err(e) => {
-            eprintln!("[Recall] Warning: invalid JSON in {}: {}", path.display(), e);
+            eprintln!(
+                "[Recall] Warning: invalid JSON in {}: {}",
+                path.display(),
+                e
+            );
             return None;
         }
     };
     if migrate_note(&mut note) {
         if let Err(e) = save_note_at(data_dir, &note) {
-            eprintln!("[Recall] Warning: failed to save migrated note {}: {}", note.id, e);
+            eprintln!(
+                "[Recall] Warning: failed to save migrated note {}: {}",
+                note.id, e
+            );
         }
     }
     Some(note)
@@ -360,14 +397,22 @@ pub fn list_note_versions_at(data_dir: &Path, note_id: &str) -> Vec<NoteVersion>
             let content = match fs::read_to_string(entry.path()) {
                 Ok(c) => c,
                 Err(e) => {
-                    eprintln!("[Recall] Warning: cannot read {}: {}", entry.path().display(), e);
+                    eprintln!(
+                        "[Recall] Warning: cannot read {}: {}",
+                        entry.path().display(),
+                        e
+                    );
                     return None;
                 }
             };
             match serde_json::from_str(&content) {
                 Ok(v) => Some(v),
                 Err(e) => {
-                    eprintln!("[Recall] Warning: invalid JSON in {}: {}", entry.path().display(), e);
+                    eprintln!(
+                        "[Recall] Warning: invalid JSON in {}: {}",
+                        entry.path().display(),
+                        e
+                    );
                     None
                 }
             }
@@ -378,13 +423,25 @@ pub fn list_note_versions_at(data_dir: &Path, note_id: &str) -> Vec<NoteVersion>
     versions
 }
 
-pub fn restore_note_version(app_handle: &tauri::AppHandle, note_id: &str, version_id: &str) -> Result<Note, String> {
+pub fn restore_note_version(
+    app_handle: &tauri::AppHandle,
+    note_id: &str,
+    version_id: &str,
+) -> Result<Note, String> {
     restore_note_version_at(&data_dir(app_handle), note_id, version_id)
 }
 
-pub fn restore_note_version_at(data_dir: &Path, note_id: &str, version_id: &str) -> Result<Note, String> {
-    let version_path = data_dir.join("versions").join(note_id).join(format!("{}.json", version_id));
-    let content = fs::read_to_string(&version_path).map_err(|e| format!("Versao nao encontrada: {}", e))?;
+pub fn restore_note_version_at(
+    data_dir: &Path,
+    note_id: &str,
+    version_id: &str,
+) -> Result<Note, String> {
+    let version_path = data_dir
+        .join("versions")
+        .join(note_id)
+        .join(format!("{}.json", version_id));
+    let content =
+        fs::read_to_string(&version_path).map_err(|e| format!("Versao nao encontrada: {}", e))?;
     let version: NoteVersion = serde_json::from_str(&content).map_err(|e| e.to_string())?;
 
     let mut note = get_note_at(data_dir, note_id).ok_or("Nota nao encontrada")?;
@@ -415,11 +472,17 @@ pub fn load_custom_templates_at(data_dir: &Path) -> Vec<CustomTemplate> {
     }
 }
 
-pub fn save_custom_templates(app_handle: &tauri::AppHandle, templates: &[CustomTemplate]) -> Result<(), String> {
+pub fn save_custom_templates(
+    app_handle: &tauri::AppHandle,
+    templates: &[CustomTemplate],
+) -> Result<(), String> {
     save_custom_templates_at(&data_dir(app_handle), templates)
 }
 
-pub fn save_custom_templates_at(data_dir: &Path, templates: &[CustomTemplate]) -> Result<(), String> {
+pub fn save_custom_templates_at(
+    data_dir: &Path,
+    templates: &[CustomTemplate],
+) -> Result<(), String> {
     let path = data_dir.join("templates.json");
     let json = serde_json::to_string_pretty(templates).map_err(|e| e.to_string())?;
     atomic_write(&path, &json)
@@ -457,20 +520,29 @@ pub fn get_reminder_at(data_dir: &Path, id: &str) -> Option<Reminder> {
     let mut reminder: Reminder = match serde_json::from_str(&content) {
         Ok(r) => r,
         Err(e) => {
-            eprintln!("[Recall] Warning: invalid JSON in {}: {}", path.display(), e);
+            eprintln!(
+                "[Recall] Warning: invalid JSON in {}: {}",
+                path.display(),
+                e
+            );
             return None;
         }
     };
     if migrate_reminder(&mut reminder) {
         if let Err(e) = save_reminder_at(data_dir, &reminder) {
-            eprintln!("[Recall] Warning: failed to save migrated reminder {}: {}", reminder.id, e);
+            eprintln!(
+                "[Recall] Warning: failed to save migrated reminder {}: {}",
+                reminder.id, e
+            );
         }
     }
     Some(reminder)
 }
 
 pub fn save_reminder_at(data_dir: &Path, reminder: &Reminder) -> Result<(), String> {
-    let path = data_dir.join("reminders").join(format!("{}.json", reminder.id));
+    let path = data_dir
+        .join("reminders")
+        .join(format!("{}.json", reminder.id));
     let json = serde_json::to_string_pretty(reminder).map_err(|e| e.to_string())?;
     atomic_write(&path, &json)
 }
