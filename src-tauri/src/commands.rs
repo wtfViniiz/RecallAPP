@@ -1,6 +1,6 @@
 use crate::cache::NoteCache;
 use crate::models::*;
-use crate::shortcuts::parse_shortcut;
+use crate::shortcuts::{parse_shortcut, resolve_shortcut_with_fallback};
 use crate::storage;
 use crate::window::{show_main_window, toggle_main_window};
 use chrono::Utc;
@@ -27,11 +27,13 @@ fn validate_id(id: &str) -> Result<(), String> {
     if id.is_empty() {
         return Err("ID nao pode ser vazio".to_string());
     }
-    if id.len() > 100 {
-        return Err("ID excede 100 caracteres".to_string());
+    let char_count = id.chars().count();
+    if char_count > 100 {
+        return Err(format!("ID excede 100 caracteres (tem {})", char_count));
     }
     if id.contains("..") || id.contains('/') || id.contains('\\') || id.contains('\0')
-        || id.contains('"') || id.contains('<') || id.contains('>') || id.contains('\'') {
+        || id.contains('"') || id.contains('<') || id.contains('>') || id.contains('\'')
+        || id.contains(':') {
         return Err("ID contem caracteres invalidos".to_string());
     }
     Ok(())
@@ -377,34 +379,26 @@ pub fn update_config(app: AppHandle, input: Config) -> Result<Config, String> {
     if parse_shortcut(&input.shortcut).is_none() {
         return Err(format!("Formato de atalho invalido: '{}'. Use ex: Ctrl+Alt+N", input.shortcut));
     }
+    if !input.new_note_shortcut.is_empty() {
+        if input.new_note_shortcut.len() > 50 {
+            return Err("Atalho de nova nota invalido".to_string());
+        }
+        if parse_shortcut(&input.new_note_shortcut).is_none() {
+            return Err(format!("Formato de atalho de nova nota invalido: '{}'", input.new_note_shortcut));
+        }
+    }
     storage::save_config(&app, &input)?;
     Ok(input)
 }
 
 #[tauri::command]
 pub fn get_categories(app: AppHandle, cache: State<'_, NoteCache>) -> Vec<String> {
-    let notes = cache.list_notes(&app, None);
-    let mut cats: Vec<String> = notes
-        .iter()
-        .filter_map(|n| n.category.clone())
-        .collect::<std::collections::HashSet<_>>()
-        .into_iter()
-        .collect();
-    cats.sort();
-    cats
+    get_categories_and_tags(app, cache).categories
 }
 
 #[tauri::command]
 pub fn get_tags(app: AppHandle, cache: State<'_, NoteCache>) -> Vec<String> {
-    let notes = cache.list_notes(&app, None);
-    let mut tags: Vec<String> = notes
-        .iter()
-        .flat_map(|n| n.tags.clone())
-        .collect::<std::collections::HashSet<_>>()
-        .into_iter()
-        .collect();
-    tags.sort();
-    tags
+    get_categories_and_tags(app, cache).tags
 }
 
 #[derive(serde::Serialize)]
@@ -549,15 +543,7 @@ pub fn update_new_note_shortcut(app: AppHandle, shortcut_str: String) -> Result<
 
     // Re-register main shortcut
     let config = storage::load_config(&app);
-    let main_shortcut = parse_shortcut(&config.shortcut)
-        .or_else(|| parse_shortcut("Ctrl+Alt+X"))
-        .unwrap_or_else(|| {
-            eprintln!("WARNING: fallback shortcut 'Ctrl+Alt+X' failed to parse, using hardcoded shortcut");
-            "Ctrl+Alt+X".parse().unwrap_or_else(|_| {
-                eprintln!("ERROR: all shortcut parsing failed, using Ctrl+X as last resort");
-                "Ctrl+X".parse().expect("Ctrl+X must parse")
-            })
-        });
+    let main_shortcut = resolve_shortcut_with_fallback(&config.shortcut);
     app.global_shortcut()
         .on_shortcut(main_shortcut, |app, _shortcut, event| {
             if event.state == tauri_plugin_global_shortcut::ShortcutState::Pressed {
@@ -699,6 +685,8 @@ pub fn import_data(app: AppHandle, cache: State<'_, NoteCache>, json_data: Strin
         }
     }
 
+    // Note: config from export is intentionally not imported to avoid overwriting local settings
+
     if let Some(reminders) = data["reminders"].as_array() {
         for reminder_value in reminders {
             match serde_json::from_value::<Reminder>(reminder_value.clone()) {
@@ -735,6 +723,14 @@ pub fn import_data(app: AppHandle, cache: State<'_, NoteCache>, json_data: Strin
                             reminder.id, reminder.trigger_at, e
                         ));
                     }
+                    if let Some(minutes) = reminder.relative_minutes {
+                        if minutes < 1 || minutes > 525600 {
+                            return Err(format!(
+                                "Lembrete '{}': relative_minutes invalido: {}",
+                                reminder.id, minutes
+                            ));
+                        }
+                    }
                     cache.save_reminder(&app, &reminder)?;
                     imported_reminders += 1;
                 }
@@ -743,10 +739,14 @@ pub fn import_data(app: AppHandle, cache: State<'_, NoteCache>, json_data: Strin
         }
     }
 
-    let msg = format!(
+    let has_config = data.get("config").is_some();
+    let mut msg = format!(
         "Importadas {} notas e {} lembretes",
         imported_notes, imported_reminders
     );
+    if has_config {
+        msg.push_str(" (configuracao ignorada)");
+    }
     if skipped > 0 {
         Ok(format!("{} ({} itens ignorados)", msg, skipped))
     } else {
@@ -833,5 +833,94 @@ mod tests {
         let result = sanitize_path_component("test@#$%^&*()");
         assert!(!result.contains('@'));
         assert!(!result.contains('#'));
+    }
+
+    #[test]
+    fn test_validate_id_unicode() {
+        // Unicode characters are allowed in IDs (no restriction against them)
+        assert!(validate_id("nota-accent-áéí").is_ok());
+        assert!(validate_id("日本語テスト").is_ok());
+        assert!(validate_id("café-naïve").is_ok());
+        assert!(validate_id("emoji-🎉").is_ok());
+    }
+
+    #[test]
+    fn test_validate_id_whitespace_only() {
+        // Whitespace-only IDs are currently allowed (no rule against them)
+        // This test documents the current behavior
+        assert!(validate_id("   ").is_ok());
+        assert!(validate_id("\t").is_ok());
+        assert!(validate_id("\n").is_ok());
+    }
+
+    #[test]
+    fn test_validate_id_max_length_boundary() {
+        // Exactly 100 chars should be OK
+        let exact_100 = "a".repeat(100);
+        assert!(validate_id(&exact_100).is_ok());
+
+        // 101 chars should fail
+        let over_100 = "a".repeat(101);
+        assert!(validate_id(&over_100).is_err());
+
+        // Very long ID (1000 chars) should fail
+        let very_long = "a".repeat(1000);
+        assert!(validate_id(&very_long).is_err());
+    }
+
+    #[test]
+    fn test_validate_id_single_char() {
+        assert!(validate_id("a").is_ok());
+        assert!(validate_id("1").is_ok());
+        assert!(validate_id("-").is_ok());
+        assert!(validate_id("_").is_ok());
+    }
+
+    #[test]
+    fn test_validate_id_all_dangerous_chars() {
+        // Each dangerous character individually should cause rejection
+        assert!(validate_id("../").is_err());
+        assert!(validate_id("a/b").is_err());
+        assert!(validate_id("a\\b").is_err());
+        assert!(validate_id("a\0b").is_err());
+        assert!(validate_id(r#"a"b"#).is_err());
+        assert!(validate_id("a<b").is_err());
+        assert!(validate_id("a>b").is_err());
+        assert!(validate_id("a'b").is_err());
+    }
+
+    #[test]
+    fn test_validate_id_combined_dangerous() {
+        // Multiple dangerous chars at once
+        assert!(validate_id("../etc/passwd").is_err());
+        assert!(validate_id(r#"<>""'""#).is_err());
+        assert!(validate_id("a\0/b\\c").is_err());
+    }
+
+    #[test]
+    fn test_validate_id_with_dots() {
+        // Double dots are blocked (path traversal), but single dots are fine
+        assert!(validate_id("a..b").is_err());
+        assert!(validate_id("a.b").is_ok());
+        assert!(validate_id(".hidden").is_ok());
+    }
+
+    #[test]
+    fn test_validate_id_length_is_char_based() {
+        // validate_id uses .chars().count() (character count), not .len() (byte length)
+        // CJK chars are 3 bytes each in UTF-8 but count as 1 character
+        let cjk_100 = "日".repeat(100); // 100 chars = 300 bytes -> OK
+        assert!(validate_id(&cjk_100).is_ok());
+
+        let cjk_101 = "日".repeat(101); // 101 chars -> ERR
+        assert!(validate_id(&cjk_101).is_err());
+    }
+
+    #[test]
+    fn test_validate_id_blocks_colon() {
+        // Colon is invalid in Windows filenames
+        assert!(validate_id("a:b").is_err());
+        assert!(validate_id("C:\\test").is_err());
+        assert!(validate_id("note:123").is_err());
     }
 }
