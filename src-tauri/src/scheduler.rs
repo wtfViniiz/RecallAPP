@@ -1,8 +1,15 @@
 use crate::cache::NoteCache;
 use chrono::{DateTime, Datelike, Timelike, Utc};
 use std::panic::catch_unwind;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tauri::{AppHandle, Manager};
+
+static SHUTDOWN: AtomicBool = AtomicBool::new(false);
+
+pub fn request_shutdown() {
+    SHUTDOWN.store(true, Ordering::Relaxed);
+}
 
 fn days_in_month(year: i32, month: u32) -> u32 {
     let next_year = if month == 12 { year + 1 } else { year };
@@ -33,6 +40,9 @@ pub fn start_scheduler(app: AppHandle, cache: NoteCache) {
 
     // Periodic check every 30 seconds
     std::thread::spawn(move || loop {
+        if SHUTDOWN.load(Ordering::Relaxed) {
+            break;
+        }
         std::thread::sleep(std::time::Duration::from_secs(30));
         let _ = catch_unwind(std::panic::AssertUnwindSafe(|| {
             check_and_fire(&app, &cache);

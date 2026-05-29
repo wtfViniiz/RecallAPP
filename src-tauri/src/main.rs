@@ -4,7 +4,7 @@ use recall::{cache, commands, scheduler, shortcuts, tray};
 use tauri::Manager;
 
 fn main() {
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec!["--minimized"]),
@@ -57,6 +57,7 @@ fn main() {
             commands::set_always_on_top,
             commands::save_image,
             commands::update_shortcut,
+            commands::update_new_note_shortcut,
             commands::export_data,
             commands::import_data,
             commands::list_note_versions,
@@ -65,6 +66,12 @@ fn main() {
             commands::save_custom_template,
             commands::delete_custom_template,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+
+    app.run(|_app_handle, event| {
+        if let tauri::RunEvent::ExitRequested { .. } = event {
+            scheduler::request_shutdown();
+        }
+    });
 }
