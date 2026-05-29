@@ -19,11 +19,11 @@ function updatePinVisual() {
   if (!pinBtn || !pinIcon) return;
   if (isPinned) {
     pinBtn.classList.add('active');
-    pinIcon.innerHTML = icons['star-filled'](16);
+    pinIcon.innerHTML = icons['pin-filled'](16);
     pinBtn.title = 'Desafixar';
   } else {
     pinBtn.classList.remove('active');
-    pinIcon.innerHTML = icons.star(16);
+    pinIcon.innerHTML = icons.pin(16);
     pinBtn.title = 'Fixar em primeiro plano';
   }
 }
@@ -51,6 +51,10 @@ async function applyTheme() {
   try {
     const config = await api.getConfig();
     document.body.className = config.theme;
+    // Apply font size from config
+    if (config.font_size) {
+      document.documentElement.style.fontSize = config.font_size + 'px';
+    }
     // Fix L8: Persist pin state from config
     if (config.always_on_top) {
       isPinned = true;
@@ -228,3 +232,37 @@ window.addEventListener('tray-action', (e) => {
     document.querySelector('[data-tab="settings"]').click();
   }
 });
+
+// Help button
+const helpBtn = document.getElementById('btn-help');
+if (helpBtn) {
+  helpBtn.addEventListener('click', () => {
+    if (document.querySelector('.modal-overlay')) return;
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    const modal = document.createElement('div');
+    modal.className = 'modal-confirm';
+    modal.style.maxWidth = '400px';
+    modal.innerHTML = `
+      <div class="modal-confirm-message" style="margin-bottom:12px;font-size:16px">Como usar o Recall</div>
+      <div style="font-size:13px;color:var(--text-secondary);line-height:1.5;margin-bottom:16px">
+        <p style="margin-bottom:8px"><strong>Notas:</strong> Ctrl+N cria uma nova nota. Ctrl+Shift+N para anotacao rapida (expira em 24h). Arraste para reordenar.</p>
+        <p style="margin-bottom:8px"><strong>Busca:</strong> Ctrl+P para buscar. Filtre por categoria ou tag.</p>
+        <p style="margin-bottom:8px"><strong>Lembretes:</strong> Crie lembretes com data, horario ou recorrencia.</p>
+        <p style="margin-bottom:8px"><strong>Templates:</strong> Salve notas como templates para reutilizar.</p>
+        <p style="margin-bottom:8px"><strong>Atalhos:</strong> Ctrl+, abre configuracoes. Escape fecha a janela.</p>
+        <p><strong>Fixar:</strong> Clique no pin no header para manter a janela visivel.</p>
+      </div>
+      <div class="modal-confirm-actions">
+        <button class="btn btn-secondary" id="help-close">Fechar</button>
+      </div>
+    `;
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    document.getElementById('help-close').addEventListener('click', () => overlay.remove());
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+    document.addEventListener('keydown', function handler(e) {
+      if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', handler); }
+    });
+  });
+}
