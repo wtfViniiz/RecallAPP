@@ -6,7 +6,7 @@
   padding: 14px 16px;
   margin-bottom: 6px;
   cursor: pointer;
-  transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+  transition: background 0.15s ease-out, border-color 0.15s ease-out, box-shadow 0.15s ease-out;
 }
 
 .card:hover {
@@ -73,12 +73,12 @@
   border-radius: 6px;
   font-size: 13px;
   font-weight: 500;
-  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+  transition: background 0.15s ease-out, border-color 0.15s ease-out, transform 0.1s ease-out;
   cursor: pointer;
 }
 
 .btn:active {
-  transform: translateY(1px);
+  transform: scale(0.97);
 }
 
 .btn:focus-visible {
@@ -302,6 +302,69 @@ textarea.form-input {
   outline-offset: 2px;
 }
 
+/* Font size slider */
+.font-size-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.font-size-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 600;
+  min-width: 16px;
+  text-align: center;
+}
+
+.font-size-label-lg {
+  font-size: 16px;
+}
+
+.font-size-slider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  outline: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.font-size-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: 2px solid var(--bg-primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.font-size-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: 2px solid var(--bg-primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.font-size-value {
+  font-size: 12px;
+  color: var(--text-secondary);
+  min-width: 32px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
 /* Status badges */
 .badge {
   display: inline-flex;
@@ -350,22 +413,28 @@ textarea.form-input {
 
 /* Empty state */
 .empty {
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   padding: 48px 24px;
   color: var(--text-secondary);
+  text-align: center;
+  gap: 12px;
 }
 
 .empty svg {
-  display: block;
-  margin: 0 auto 16px;
-  opacity: 0.4;
+  opacity: 0.3;
 }
 
 .empty p {
-  font-size: 13px;
-  line-height: 1.5;
-  max-width: 280px;
-  margin: 0 auto;
+  font-size: 14px;
+  max-width: 240px;
+  line-height: 1.4;
+}
+
+.empty .btn {
+  margin-top: 8px;
 }
 
 /* Header with back button */
@@ -392,7 +461,7 @@ textarea.form-input {
 /* Toast notifications */
 .toast-container {
   position: fixed;
-  top: 12px;
+  bottom: 12px;
   right: 12px;
   z-index: 1000;
   display: flex;
@@ -512,7 +581,7 @@ textarea.form-input {
   font-weight: 600;
   border: none;
   background: transparent;
-  padding: 0 0 8px 0;
+  padding: 4px 0 8px 4px;
   margin-bottom: 8px;
   border-bottom: 1px solid var(--border);
   width: 100%;
@@ -871,6 +940,13 @@ mark {
   background: var(--accent);
   border-color: var(--accent);
   color: #fafafa;
+}
+
+.toolbar-separator {
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+  margin: 0 4px;
 }
 
 /* Load More */

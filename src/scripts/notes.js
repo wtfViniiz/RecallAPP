@@ -215,8 +215,14 @@ async function loadNotes(append = false) {
   const list = document.getElementById('notes-list');
 
   if (!append && notes.length === 0) {
-    list.innerHTML = `<div class="empty">${icons['file-text'](32)}<p>Nenhuma nota encontrada</p></div>`;
+    list.innerHTML = `<div class="empty">
+      ${icons['file-text'](32)}
+      <p>Nenhuma nota por aqui</p>
+      <button class="btn btn-primary btn-sm" id="btn-empty-new">Criar nota</button>
+    </div>`;
     allLoadedNotes = [];
+    const btn = document.getElementById('btn-empty-new');
+    if (btn) btn.addEventListener('click', () => showTemplateSelector());
     return;
   }
 
@@ -254,7 +260,10 @@ async function loadRecentNotes() {
   const list = document.getElementById('notes-list');
 
   if (recent.length === 0) {
-    list.innerHTML = `<div class="empty">${icons.clock(32)}<p>Nenhuma nota recente</p></div>`;
+    list.innerHTML = `<div class="empty">
+      ${icons.clock(32)}
+      <p>Nenhuma nota recente</p>
+    </div>`;
     return;
   }
 

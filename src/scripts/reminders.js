@@ -120,7 +120,16 @@ async function loadReminders(append = false) {
   const list = document.getElementById('reminders-list');
 
   if (!append && reminders.length === 0) {
-    list.innerHTML = `<div class="empty">${icons.calendar(32)}<p>Nenhum lembrete</p></div>`;
+    list.innerHTML = `<div class="empty">
+      ${icons.calendar(32)}
+      <p>Nenhum lembrete por aqui</p>
+      <button class="btn btn-primary btn-sm" id="btn-empty-reminder">Criar lembrete</button>
+    </div>`;
+    const btn = document.getElementById('btn-empty-reminder');
+    if (btn) btn.addEventListener('click', () => {
+      const newBtn = document.getElementById('btn-new-reminder');
+      if (newBtn) newBtn.click();
+    });
     return;
   }
 
