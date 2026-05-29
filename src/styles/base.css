@@ -2,14 +2,42 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
-  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-size: 14px;
   color: var(--text-primary);
   background: var(--bg-primary);
   overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+button, a {
+  cursor: default;
+}
+
+input, textarea, [contenteditable] {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+input:focus-visible,
+textarea:focus-visible,
+[contenteditable]:focus-visible {
+  outline: none;
 }
 
 #app {
@@ -63,10 +91,34 @@ body {
 
 #tabs {
   display: flex;
+  align-items: center;
   border-bottom: 1px solid var(--border);
   background: var(--bg-secondary);
   padding: 0 12px;
   user-select: none;
+}
+
+.tabs-main {
+  display: flex;
+  flex: 1;
+}
+
+.tab-settings {
+  margin-left: auto;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.6;
+  transition: opacity 0.15s, color 0.15s;
+}
+
+.tab-settings:hover {
+  opacity: 1;
+}
+
+.tab-settings.active {
+  opacity: 1;
 }
 
 .tab {
@@ -140,7 +192,7 @@ textarea {
 }
 
 button {
-  cursor: pointer;
+  cursor: default;
 }
 
 ::-webkit-scrollbar {
@@ -164,8 +216,8 @@ svg {
 }
 
 .header-title {
+  font-size: 15px;
   font-weight: 600;
-  font-size: 13px;
-  color: var(--text-secondary);
-  letter-spacing: 0.02em;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
 }
