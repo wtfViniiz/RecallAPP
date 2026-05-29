@@ -58,9 +58,20 @@ export function showToast(message, type = 'info', duration = 3000, isHtml = fals
       console.error('showToast: script tag detected in HTML message, blocking');
       toast.textContent = message.replace(/<[^>]*>/g, '');
     } else {
-      // Strip on* event handlers for defense-in-depth
-      const sanitized = message.replace(/\son\w+\s*=\s*["'][^"']*["']/gi, '');
-      toast.innerHTML = sanitized;
+      // DOM-based sanitization for defense-in-depth
+      const temp = document.createElement('div');
+      temp.innerHTML = message;
+      // Remove script tags
+      temp.querySelectorAll('script').forEach(el => el.remove());
+      // Remove event handler attributes
+      temp.querySelectorAll('*').forEach(el => {
+        for (const attr of Array.from(el.attributes)) {
+          if (attr.name.startsWith('on')) {
+            el.removeAttribute(attr.name);
+          }
+        }
+      });
+      toast.innerHTML = temp.innerHTML;
     }
   } else {
     toast.textContent = message;
