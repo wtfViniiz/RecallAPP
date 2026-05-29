@@ -401,14 +401,26 @@ function openEditor(note) {
                            e.target.closest('.form-row') ||
                            e.target.closest('.note-title') ||
                            e.target.closest('.versions-panel') ||
-                           e.target.closest('.editor-menu-dropdown');
+                           e.target.closest('.editor-menu-dropdown') ||
+                           e.target.id === 'btn-save-manual' ||
+                           e.target.closest('#btn-save-manual');
     if (!isInsideEditor && !isPreviewMode) {
+      // Enter preview mode
       isPreviewMode = true;
       editorWrapper.style.display = 'none';
       previewDiv.style.display = 'block';
       const md = htmlToMarkdown(contentInput.innerHTML);
-      previewDiv.innerHTML = renderMarkdown(md);
+      previewDiv.innerHTML = renderMarkdown(md) +
+        '<div style="text-align:center;margin-top:16px"><button class="btn btn-secondary btn-sm" id="btn-edit-mode">Editar</button></div>';
+      document.getElementById('btn-edit-mode').addEventListener('click', (evt) => {
+        evt.stopPropagation();
+        isPreviewMode = false;
+        editorWrapper.style.display = 'flex';
+        previewDiv.style.display = 'none';
+        contentInput.focus();
+      });
     } else if (isInsideEditor && isPreviewMode) {
+      // Return to edit mode
       isPreviewMode = false;
       editorWrapper.style.display = 'flex';
       previewDiv.style.display = 'none';
