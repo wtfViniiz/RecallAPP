@@ -9,6 +9,12 @@ pub struct NoteCache {
     reminders: Arc<Mutex<Option<Vec<Reminder>>>>,
 }
 
+impl Default for NoteCache {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl NoteCache {
     pub fn new() -> Self {
         Self {

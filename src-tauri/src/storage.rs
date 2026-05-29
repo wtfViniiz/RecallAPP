@@ -175,7 +175,7 @@ fn load_all_notes_from_dir(data_dir: &Path) -> Vec<Note> {
         .flatten()
         .filter_map(|entry| {
             let entry = entry.ok()?;
-            if entry.path().extension().map_or(false, |e| e == "tmp") {
+            if entry.path().extension().is_some_and(|e| e == "tmp") {
                 return None;
             }
             let content = match fs::read_to_string(entry.path()) {
@@ -223,7 +223,7 @@ fn load_all_reminders_from_dir(data_dir: &Path) -> Vec<Reminder> {
         .flatten()
         .filter_map(|entry| {
             let entry = entry.ok()?;
-            if entry.path().extension().map_or(false, |e| e == "tmp") {
+            if entry.path().extension().is_some_and(|e| e == "tmp") {
                 return None;
             }
             let content = match fs::read_to_string(entry.path()) {
@@ -391,7 +391,7 @@ pub fn list_note_versions_at(data_dir: &Path, note_id: &str) -> Vec<NoteVersion>
         .flatten()
         .filter_map(|entry| {
             let entry = entry.ok()?;
-            if entry.path().extension().map_or(false, |e| e == "tmp") {
+            if entry.path().extension().is_some_and(|e| e == "tmp") {
                 return None;
             }
             let content = match fs::read_to_string(entry.path()) {

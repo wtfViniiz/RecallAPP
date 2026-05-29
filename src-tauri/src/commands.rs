@@ -257,7 +257,7 @@ pub fn create_reminder(
 
     let now = Utc::now();
     let trigger_at = if let Some(minutes) = input.relative_minutes {
-        if minutes < 1 || minutes > 525600 {
+        if !(1..=525600).contains(&minutes) {
             return Err("relative_minutes deve ser entre 1 e 525600 (1 ano)".to_string());
         }
         (now + chrono::Duration::minutes(minutes)).to_rfc3339()
@@ -361,7 +361,7 @@ pub fn update_reminder(
         };
     }
     if let Some(relative_minutes) = input.relative_minutes {
-        if relative_minutes < 1 || relative_minutes > 525600 {
+        if !(1..=525600).contains(&relative_minutes) {
             return Err("relative_minutes deve ser entre 1 e 525600 (1 ano)".to_string());
         }
         reminder.relative_minutes = Some(relative_minutes);
@@ -405,7 +405,7 @@ pub fn snooze_reminder(
     minutes: i64,
 ) -> Result<(), String> {
     validate_id(&id)?;
-    if minutes < 1 || minutes > 10080 {
+    if !(1..=10080).contains(&minutes) {
         return Err("Snooze deve ser entre 1 minuto e 7 dias".to_string());
     }
     let mut reminder = cache
@@ -861,7 +861,7 @@ pub fn import_data(
                         ));
                     }
                     if let Some(minutes) = reminder.relative_minutes {
-                        if minutes < 1 || minutes > 525600 {
+                        if !(1..=525600).contains(&minutes) {
                             return Err(format!(
                                 "Lembrete '{}': relative_minutes invalido: {}",
                                 reminder.id, minutes
