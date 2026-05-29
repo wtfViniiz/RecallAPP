@@ -18,6 +18,10 @@ pub struct Note {
     pub trashed_at: Option<String>,
     #[serde(default)]
     pub position: Option<i32>,
+    #[serde(default)]
+    pub temporary: bool,
+    #[serde(default)]
+    pub expires_at: Option<String>,
     #[serde(default = "default_schema_version")]
     pub schema_version: u32,
     pub created_at: String,
@@ -120,6 +124,8 @@ pub struct CreateNote {
     pub content: Option<String>,
     pub category: Option<String>,
     pub tags: Option<Vec<String>>,
+    #[serde(default)]
+    pub temporary: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -195,6 +201,8 @@ mod tests {
             trashed: false,
             trashed_at: None,
             position: None,
+            temporary: false,
+            expires_at: None,
             schema_version: 1,
             created_at: "2026-05-28T10:00:00Z".to_string(),
             updated_at: "2026-05-28T12:00:00Z".to_string(),
@@ -226,6 +234,8 @@ mod tests {
             trashed: true,
             trashed_at: Some("2026-05-28T15:00:00Z".to_string()),
             position: None,
+            temporary: false,
+            expires_at: None,
             schema_version: 1,
             created_at: "2026-05-28T10:00:00Z".to_string(),
             updated_at: "2026-05-28T15:00:00Z".to_string(),

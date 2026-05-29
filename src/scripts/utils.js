@@ -86,43 +86,55 @@ export function showToast(message, type = 'info', duration = 3000, isHtml = fals
   return toast;
 }
 
-export function showConfirm(message, onConfirm) {
-  const container = document.getElementById('toast-container');
-  const toast = document.createElement('div');
-  toast.className = 'toast warning confirm-toast';
+let activeConfirm = null;
 
-  const msg = document.createElement('span');
+export function showConfirm(message, onConfirm) {
+  if (activeConfirm) return;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  activeConfirm = overlay;
+
+  const modal = document.createElement('div');
+  modal.className = 'modal-confirm';
+
+  const msg = document.createElement('div');
+  msg.className = 'modal-confirm-message';
   msg.textContent = message;
 
   const actions = document.createElement('div');
-  actions.className = 'confirm-actions';
-
-  const confirmBtn = document.createElement('button');
-  confirmBtn.className = 'btn btn-sm btn-danger';
-  confirmBtn.textContent = 'Confirmar';
-  confirmBtn.addEventListener('click', () => {
-    toast.remove();
-    onConfirm();
-  });
+  actions.className = 'modal-confirm-actions';
 
   const cancelBtn = document.createElement('button');
-  cancelBtn.className = 'btn btn-sm btn-secondary';
+  cancelBtn.className = 'btn btn-secondary';
   cancelBtn.textContent = 'Cancelar';
-  cancelBtn.addEventListener('click', () => toast.remove());
+
+  const confirmBtn = document.createElement('button');
+  confirmBtn.className = 'btn btn-danger';
+  confirmBtn.textContent = 'Confirmar';
+
+  const close = () => {
+    overlay.remove();
+    activeConfirm = null;
+  };
+
+  cancelBtn.addEventListener('click', close);
+  confirmBtn.addEventListener('click', () => {
+    close();
+    onConfirm();
+  });
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) close();
+  });
 
   actions.appendChild(cancelBtn);
   actions.appendChild(confirmBtn);
-  toast.appendChild(msg);
-  toast.appendChild(actions);
-  container.appendChild(toast);
+  modal.appendChild(msg);
+  modal.appendChild(actions);
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
 
-  // Auto-dismiss after 30s as cancel
-  setTimeout(() => {
-    if (toast.parentNode) {
-      toast.style.animation = 'slideIn 0.2s ease-out reverse';
-      setTimeout(() => toast.remove(), 200);
-    }
-  }, 30000);
+  confirmBtn.focus();
 }
 
 // Lightweight markdown renderer
