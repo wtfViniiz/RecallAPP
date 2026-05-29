@@ -7,7 +7,7 @@ export async function initSettings() {
   try {
     config = await api.getConfig();
   } catch (err) {
-    showToast('Erro ao carregar configuracoes', 'error');
+    showToast(err.message || 'Erro ao carregar configuracoes', 'error');
     return;
   }
   const version = await api.getAppVersion().catch(() => '0.1.0');
@@ -29,6 +29,16 @@ export async function initSettings() {
       <input type="hidden" id="setting-shortcut" value="${config.shortcut}">
       <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">
         Clique e pressione a combinacao desejada
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Atalho nova nota direta</label>
+      <div class="shortcut-capture" id="new-note-shortcut-display" tabindex="0" title="Clique para gravar">
+        ${config.new_note_shortcut ? formatShortcut(config.new_note_shortcut) : 'Nenhum'}
+      </div>
+      <input type="hidden" id="setting-new-note-shortcut" value="${config.new_note_shortcut || ''}">
+      <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">
+        Abre editor direto sem seletor de template. Clique para gravar.
       </div>
     </div>
     <div class="form-group" style="display:flex; justify-content:space-between; align-items:center;">
@@ -61,11 +71,13 @@ export async function initSettings() {
 
   // Shortcut capture
   setupShortcutCapture();
+  setupNewNoteShortcutCapture();
 
   // Save button
   document.getElementById('btn-save-settings').addEventListener('click', async () => {
     const theme = document.querySelector('input[name="theme"]:checked').value;
     const shortcut = document.getElementById('setting-shortcut').value;
+    const newNoteShortcut = document.getElementById('setting-new-note-shortcut').value;
     const autostart = document.getElementById('setting-autostart').checked;
 
     // Save config first (independent of shortcut)
@@ -73,6 +85,7 @@ export async function initSettings() {
       await api.updateConfig({
         theme,
         shortcut,
+        new_note_shortcut: newNoteShortcut,
         autostart,
         check_updates: config.check_updates,
         window_width: config.window_width,
@@ -80,16 +93,23 @@ export async function initSettings() {
       });
     } catch (e) {
       console.error('Failed to save settings:', e);
-      showToast('Erro ao salvar configuracoes', 'error');
+      showToast(e.message || 'Erro ao salvar configuracoes', 'error');
       return;
     }
 
-    // Then update shortcut (may fail if invalid/in-use)
+    // Then update shortcuts (may fail if invalid/in-use)
     try {
       await api.updateShortcut(shortcut);
     } catch (e) {
       console.error('Failed to update shortcut:', e);
-      showToast('Config salvas, mas atalho invalido ou ja em uso', 'warning');
+      showToast(e.message || 'Config salvas, mas atalho invalido ou ja em uso', 'warning');
+    }
+
+    try {
+      await api.updateNewNoteShortcut(newNoteShortcut);
+    } catch (e) {
+      console.error('Failed to update new note shortcut:', e);
+      showToast(e.message || 'Config salvas, mas atalho de nova nota invalido', 'warning');
     }
 
     // Toggle autostart registration
@@ -121,7 +141,7 @@ export async function initSettings() {
       setTimeout(() => URL.revokeObjectURL(url), 5000);
       showToast('Dados exportados', 'success');
     } catch (e) {
-      showToast('Erro ao exportar', 'error');
+      showToast(e.message || 'Erro ao exportar', 'error');
     }
   });
 
@@ -207,6 +227,73 @@ function setupShortcutCapture() {
       isRecording = false;
       display.classList.remove('recording');
       display.textContent = formatShortcut(input.value);
+    }
+  });
+}
+
+function setupNewNoteShortcutCapture() {
+  const display = document.getElementById('new-note-shortcut-display');
+  const input = document.getElementById('setting-new-note-shortcut');
+  if (!display || !input) return;
+  let isRecording = false;
+
+  display.addEventListener('click', () => {
+    isRecording = true;
+    display.classList.add('recording');
+    display.textContent = 'Pressione a combinacao...';
+    display.focus();
+  });
+
+  display.addEventListener('keydown', (e) => {
+    if (!isRecording) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Escape cancels recording
+    if (e.key === 'Escape') {
+      isRecording = false;
+      display.classList.remove('recording');
+      display.textContent = input.value ? formatShortcut(input.value) : 'Nenhum';
+      return;
+    }
+
+    // Need at least one modifier
+    if (!e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) {
+      return;
+    }
+
+    // Ignore modifier-only keydowns
+    if (['Control', 'Alt', 'Shift', 'Meta'].includes(e.key)) {
+      return;
+    }
+
+    const key = normalizeShortcutKey(e);
+    if (!key) {
+      return;
+    }
+
+    // Build shortcut string
+    const parts = [];
+    if (e.ctrlKey) parts.push('Ctrl');
+    if (e.altKey) parts.push('Alt');
+    if (e.shiftKey) parts.push('Shift');
+    if (e.metaKey) parts.push('Super');
+    parts.push(key);
+
+    const shortcut = parts.join('+');
+    input.value = shortcut;
+    display.textContent = formatShortcut(shortcut);
+    display.classList.remove('recording');
+    isRecording = false;
+
+    showToast(`Atalho nova nota definido: ${formatShortcut(shortcut)}`, 'success');
+  });
+
+  display.addEventListener('blur', () => {
+    if (isRecording) {
+      isRecording = false;
+      display.classList.remove('recording');
+      display.textContent = input.value ? formatShortcut(input.value) : 'Nenhum';
     }
   });
 }

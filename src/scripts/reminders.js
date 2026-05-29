@@ -1,5 +1,6 @@
 import { api } from './api.js';
 import { formatDateTime, formatRelativeDate, escapeHtml, showToast, showConfirm } from './utils.js';
+import { icons } from './icons.js';
 
 let currentReminder = null;
 let remindersOffset = 0;
@@ -19,7 +20,7 @@ async function renderRemindersList() {
     <div class="toolbar">
       <h3>Lembretes</h3>
       <div>
-        <button class="btn btn-secondary" id="btn-calendar-view" title="Calendario">&#128197;</button>
+        <button class="btn btn-secondary" id="btn-calendar-view" title="Calendario">${icons.calendar(16)}</button>
         <button class="btn btn-primary" id="btn-new-reminder">+ Novo</button>
       </div>
     </div>
@@ -41,7 +42,7 @@ function renderReminderCards(reminders) {
     const repeatLabel = r.repeat ? ` · ${r.repeat === 'daily' ? 'Diario' : r.repeat === 'weekly' ? 'Semanal' : 'Mensal'}` : '';
 
     return `
-      <div class="card" data-id="${r.id}">
+      <div class="card" data-id="${escapeHtml(r.id)}">
         <div class="card-title">${escapeHtml(r.title)}</div>
         <div class="card-meta">
           <span class="badge ${statusClass}">${statusLabel}</span>
@@ -51,10 +52,10 @@ function renderReminderCards(reminders) {
         ${r.description ? `<div class="card-meta">${escapeHtml(r.description)}</div>` : ''}
         ${r.status === 'fired' ? `
           <div class="card-actions">
-            <button class="btn btn-secondary btn-sm" data-snooze="${r.id}" data-minutes="5">+5min</button>
-            <button class="btn btn-secondary btn-sm" data-snooze="${r.id}" data-minutes="15">+15min</button>
-            <button class="btn btn-secondary btn-sm" data-snooze="${r.id}" data-minutes="60">+1h</button>
-            <button class="btn btn-secondary btn-sm" data-dismiss="${r.id}">Dispensar</button>
+            <button class="btn btn-secondary btn-sm" data-snooze="${escapeHtml(r.id)}" data-minutes="5">+5min</button>
+            <button class="btn btn-secondary btn-sm" data-snooze="${escapeHtml(r.id)}" data-minutes="15">+15min</button>
+            <button class="btn btn-secondary btn-sm" data-snooze="${escapeHtml(r.id)}" data-minutes="60">+1h</button>
+            <button class="btn btn-secondary btn-sm" data-dismiss="${escapeHtml(r.id)}">Dispensar</button>
           </div>
         ` : ''}
       </div>
@@ -79,7 +80,7 @@ function attachReminderHandlers(list, reminders) {
         showToast('Lembrete dispensado', 'success');
         await loadReminders();
       } catch (err) {
-        showToast('Erro ao dispensar lembrete', 'error');
+        showToast(err.message || 'Erro ao dispensar lembrete', 'error');
       }
     });
   });
@@ -94,7 +95,7 @@ function attachReminderHandlers(list, reminders) {
         showToast(`Lembrete adiado ${minutes} minutos`, 'success');
         await loadReminders();
       } catch (err) {
-        showToast('Erro ao adiar lembrete', 'error');
+        showToast(err.message || 'Erro ao adiar lembrete', 'error');
       }
     });
   });
@@ -111,7 +112,7 @@ async function loadReminders(append = false) {
   try {
     result = await api.getReminders(filter);
   } catch (err) {
-    showToast('Erro ao carregar lembretes', 'error');
+    showToast(err.message || 'Erro ao carregar lembretes', 'error');
     return;
   }
   const reminders = result.items;
@@ -119,7 +120,7 @@ async function loadReminders(append = false) {
   const list = document.getElementById('reminders-list');
 
   if (!append && reminders.length === 0) {
-    list.innerHTML = '<div class="empty">Nenhum lembrete</div>';
+    list.innerHTML = `<div class="empty">${icons.calendar(32)}<p>Nenhum lembrete</p></div>`;
     return;
   }
 
@@ -248,7 +249,7 @@ async function openReminderForm(reminder) {
           await api.deleteReminder(reminder.id);
           showToast('Lembrete excluido', 'success');
         } catch (err) {
-          showToast('Erro ao excluir', 'error');
+          showToast(err.message || 'Erro ao excluir', 'error');
         }
         renderRemindersList();
       });
@@ -291,7 +292,7 @@ async function saveReminder() {
       showToast('Lembrete atualizado', 'success');
       renderRemindersList();
     } catch (e) {
-      showToast('Erro ao atualizar', 'error');
+      showToast(e.message || 'Erro ao atualizar', 'error');
     }
     return;
   }
@@ -321,7 +322,7 @@ async function saveReminder() {
     showToast('Lembrete criado', 'success');
     renderRemindersList();
   } catch (e) {
-    showToast('Erro ao criar lembrete', 'error');
+    showToast(e.message || 'Erro ao criar lembrete', 'error');
   }
 }
 
@@ -363,9 +364,9 @@ async function renderCalendarView() {
       <button class="btn btn-secondary" id="btn-back-calendar">Voltar</button>
       <h3>${monthNames[month]} ${year}</h3>
       <div class="calendar-nav">
-        <button class="btn btn-secondary" id="btn-prev-month" title="Mes anterior">&lt;</button>
+        <button class="btn btn-secondary" id="btn-prev-month" title="Mes anterior">${icons['chevron-left'](16)}</button>
         <button class="btn btn-secondary" id="btn-today-month" title="Mes atual">Hoje</button>
-        <button class="btn btn-secondary" id="btn-next-month" title="Proximo mes">&gt;</button>
+        <button class="btn btn-secondary" id="btn-next-month" title="Proximo mes">${icons['chevron-right'](16)}</button>
       </div>
     </div>
     <div class="calendar">

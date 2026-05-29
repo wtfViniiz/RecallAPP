@@ -182,7 +182,7 @@ function attachNoteCardHandlers(list, notes, append = false) {
         showToast('Nota movida para lixeira', 'success');
         await loadNotes();
       } catch (err) {
-        showToast('Erro ao mover para lixeira', 'error');
+        showToast(err.message || 'Erro ao mover para lixeira', 'error');
       }
     });
   });
@@ -208,7 +208,7 @@ async function loadNotes(append = false) {
     result = await api.getNotes(filter);
   } catch (err) {
     console.error('Erro ao carregar notas:', err);
-    showToast('Erro ao carregar notas', 'error');
+    showToast(err.message || 'Erro ao carregar notas', 'error');
     return;
   }
   const notes = result.items;
@@ -248,7 +248,7 @@ async function loadRecentNotes() {
   try {
     result = await api.getNotes({ limit: 10 });
   } catch (err) {
-    showToast('Erro ao carregar notas recentes', 'error');
+    showToast(err.message || 'Erro ao carregar notas recentes', 'error');
     return;
   }
   const recent = result.items;
@@ -284,7 +284,7 @@ async function renderTrashList() {
         const count = await api.emptyTrash();
         showToast(`${count} notas excluidas permanentemente`, 'success');
       } catch (err) {
-        showToast('Erro ao esvaziar lixeira', 'error');
+        showToast(err.message || 'Erro ao esvaziar lixeira', 'error');
       }
       renderTrashList();
     });
@@ -321,7 +321,7 @@ async function renderTrashList() {
         showToast('Nota restaurada', 'success');
         renderTrashList();
       } catch (err) {
-        showToast('Erro ao restaurar nota', 'error');
+        showToast(err.message || 'Erro ao restaurar nota', 'error');
       }
     });
   });
@@ -334,7 +334,7 @@ async function renderTrashList() {
           await api.deleteNote(btn.dataset.delete);
           showToast('Nota excluida permanentemente', 'success');
         } catch (err) {
-          showToast('Erro ao excluir', 'error');
+          showToast(err.message || 'Erro ao excluir', 'error');
         }
         renderTrashList();
       });
@@ -421,7 +421,7 @@ async function showTemplateSelector() {
           showToast('Template excluido', 'success');
           showTemplateSelector();
         } catch (err) {
-          showToast('Erro ao excluir template', 'error');
+          showToast(err.message || 'Erro ao excluir template', 'error');
         }
       });
     });
@@ -473,7 +473,7 @@ function openTemplateEditor(tpl) {
       await api.saveCustomTemplate(input);
       showToast('Template salvo', 'success');
       showTemplateSelector();
-    } catch { showToast('Erro ao salvar', 'error'); }
+    } catch (err) { showToast(err.message || 'Erro ao salvar', 'error'); }
   });
 }
 
@@ -694,7 +694,7 @@ function openEditor(note) {
             showToast('Imagem colada', 'success');
             autoSave();
           } catch (err) {
-            showToast('Erro ao colar imagem', 'error');
+            showToast(err.message || 'Erro ao colar imagem', 'error');
           }
         };
         reader.readAsDataURL(file);
@@ -738,7 +738,7 @@ function openEditor(note) {
       await navigator.clipboard.writeText(fullText);
       showToast('Nota copiada', 'success');
     } catch (e) {
-      showToast('Erro ao copiar', 'error');
+      showToast(e.message || 'Erro ao copiar', 'error');
     }
   });
 
@@ -779,7 +779,7 @@ function openEditor(note) {
             icon: null,
           });
           showToast('Template salvo', 'success');
-        } catch { showToast('Erro ao salvar', 'error'); }
+        } catch (err) { showToast(err.message || 'Erro ao salvar', 'error'); }
       };
       saveBtn?.addEventListener('click', doSave);
       cancelBtn?.addEventListener('click', () => { if (toastEl?.parentElement) toastEl.remove(); });
@@ -867,7 +867,7 @@ function openEditor(note) {
                     panel.style.display = 'none';
                     showToast('Versao restaurada', 'success');
                   } catch (err) {
-                    showToast('Erro ao restaurar versao', 'error');
+                    showToast(err.message || 'Erro ao restaurar versao', 'error');
                   }
                 });
               });
@@ -891,7 +891,7 @@ function openEditor(note) {
         showToast(note.pinned ? 'Desfixada' : 'Fixada', 'success');
         openEditor({ ...note, pinned: !note.pinned });
       } catch (err) {
-        showToast('Erro ao fixar nota', 'error');
+        showToast(err.message || 'Erro ao fixar nota', 'error');
       }
     });
 
@@ -902,7 +902,7 @@ function openEditor(note) {
           await api.trashNote(note.id);
           showToast('Nota movida para lixeira', 'success');
         } catch (err) {
-          showToast('Erro ao mover para lixeira', 'error');
+          showToast(err.message || 'Erro ao mover para lixeira', 'error');
         }
         currentView = 'list';
         renderNotesList();
@@ -1002,7 +1002,7 @@ async function saveNote(silent = false) {
       showToast('Nota salva', 'success');
     }
   } catch (e) {
-    showToast('Erro ao salvar', 'error');
+    showToast(e.message || 'Erro ao salvar', 'error');
   }
 }
 
