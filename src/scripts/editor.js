@@ -207,48 +207,66 @@ function openEditor(note) {
   titleInput.addEventListener('input', autoSave);
   contentInput.addEventListener('input', autoSave);
 
-  // Image paste
+  // Paste handler: images, sanitized HTML, plain text
   contentInput.addEventListener('paste', async (e) => {
     const items = e.clipboardData?.items;
-    if (!items) return;
 
-    for (const item of items) {
-      if (item.type.startsWith('image/')) {
-        e.preventDefault();
-        const file = item.getAsFile();
-        if (!file) continue;
+    // Image paste
+    if (items) {
+      for (const item of items) {
+        if (item.type.startsWith('image/')) {
+          e.preventDefault();
+          const file = item.getAsFile();
+          if (!file) continue;
 
-        const reader = new FileReader();
-        reader.onload = async () => {
-          const base64 = reader.result.split(',')[1];
-          try {
-            const noteId = currentNote?.id || 'new';
-            const path = await api.saveImage(base64, noteId);
-            const img = document.createElement('img');
-            img.src = toAssetUrl(path);
-            img.style.maxWidth = '100%';
-            const sel = window.getSelection();
-            if (sel.rangeCount > 0) {
-              const range = sel.getRangeAt(0);
-              range.deleteContents();
-              range.insertNode(img);
-              range.setStartAfter(img);
-              range.collapse(true);
-              sel.removeAllRanges();
-              sel.addRange(range);
-            } else {
-              contentInput.appendChild(img);
+          const reader = new FileReader();
+          reader.onload = async () => {
+            const base64 = reader.result.split(',')[1];
+            try {
+              const noteId = currentNote?.id || 'new';
+              const path = await api.saveImage(base64, noteId);
+              const img = document.createElement('img');
+              img.src = toAssetUrl(path);
+              img.style.maxWidth = '100%';
+              const sel = window.getSelection();
+              if (sel.rangeCount > 0) {
+                const range = sel.getRangeAt(0);
+                range.deleteContents();
+                range.insertNode(img);
+                range.setStartAfter(img);
+                range.collapse(true);
+                sel.removeAllRanges();
+                sel.addRange(range);
+              } else {
+                contentInput.appendChild(img);
+              }
+              showToast('Imagem colada', 'success');
+              autoSave();
+            } catch (err) {
+              showToast(err.message || 'Erro ao colar imagem', 'error');
             }
-            showToast('Imagem colada', 'success');
-            autoSave();
-          } catch (err) {
-            showToast(err.message || 'Erro ao colar imagem', 'error');
-          }
-        };
-        reader.readAsDataURL(file);
-        return;
+          };
+          reader.readAsDataURL(file);
+          return;
+        }
       }
     }
+
+    // HTML paste: sanitize before insertion to prevent XSS
+    const html = e.clipboardData?.getData('text/html');
+    if (html) {
+      e.preventDefault();
+      const sanitized = html
+        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+        .replace(/\son\w+\s*=\s*["'][^"']*["']/gi, '')
+        .replace(/\son\w+\s*=\s*[^\s>]*/gi, '')
+        .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
+        .replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, '')
+        .replace(/<embed\b[^>]*>/gi, '');
+      document.execCommand('insertHTML', false, sanitized);
+      autoSave();
+    }
+    // Plain text paste: let browser handle it (safe)
   });
 
   // Event delegation for chip removal
