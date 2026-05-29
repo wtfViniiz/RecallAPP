@@ -123,7 +123,9 @@ pub fn list_notes_at(data_dir: &Path, filter: Option<NoteFilter>) -> Vec<Note> {
             let content = fs::read_to_string(entry.path()).ok()?;
             let mut note: Note = serde_json::from_str(&content).ok()?;
             if migrate_note(&mut note) {
-                let _ = save_note_at(data_dir, &note);
+                if let Err(e) = save_note_at(data_dir, &note) {
+                    eprintln!("Warning: failed to save migrated note {}: {}", note.id, e);
+                }
             }
             Some(note)
         })
@@ -188,7 +190,9 @@ pub fn list_all_notes_at(data_dir: &Path) -> Vec<Note> {
             let content = fs::read_to_string(entry.path()).ok()?;
             let mut note: Note = serde_json::from_str(&content).ok()?;
             if migrate_note(&mut note) {
-                let _ = save_note_at(data_dir, &note);
+                if let Err(e) = save_note_at(data_dir, &note) {
+                    eprintln!("Warning: failed to save migrated note {}: {}", note.id, e);
+                }
             }
             Some(note)
         })
@@ -209,7 +213,9 @@ pub fn list_trashed_notes_at(data_dir: &Path) -> Vec<Note> {
             let content = fs::read_to_string(entry.path()).ok()?;
             let mut note: Note = serde_json::from_str(&content).ok()?;
             if migrate_note(&mut note) {
-                let _ = save_note_at(data_dir, &note);
+                if let Err(e) = save_note_at(data_dir, &note) {
+                    eprintln!("Warning: failed to save migrated note {}: {}", note.id, e);
+                }
             }
             Some(note)
         })
@@ -231,7 +237,9 @@ pub fn get_note_at(data_dir: &Path, id: &str) -> Option<Note> {
     let content = fs::read_to_string(&path).ok()?;
     let mut note: Note = serde_json::from_str(&content).ok()?;
     if migrate_note(&mut note) {
-        let _ = save_note_at(data_dir, &note);
+        if let Err(e) = save_note_at(data_dir, &note) {
+            eprintln!("Warning: failed to save migrated note {}: {}", note.id, e);
+        }
     }
     Some(note)
 }
@@ -370,7 +378,9 @@ pub fn list_reminders_at(data_dir: &Path, status: Option<String>) -> Vec<Reminde
             let content = fs::read_to_string(entry.path()).ok()?;
             let mut reminder: Reminder = serde_json::from_str(&content).ok()?;
             if migrate_reminder(&mut reminder) {
-                let _ = save_reminder_at(data_dir, &reminder);
+                if let Err(e) = save_reminder_at(data_dir, &reminder) {
+                    eprintln!("Warning: failed to save migrated reminder {}: {}", reminder.id, e);
+                }
             }
             Some(reminder)
         })
@@ -389,7 +399,9 @@ pub fn get_reminder_at(data_dir: &Path, id: &str) -> Option<Reminder> {
     let content = fs::read_to_string(&path).ok()?;
     let mut reminder: Reminder = serde_json::from_str(&content).ok()?;
     if migrate_reminder(&mut reminder) {
-        let _ = save_reminder_at(data_dir, &reminder);
+        if let Err(e) = save_reminder_at(data_dir, &reminder) {
+            eprintln!("Warning: failed to save migrated reminder {}: {}", reminder.id, e);
+        }
     }
     Some(reminder)
 }
@@ -658,6 +670,7 @@ mod tests {
         let config = Config {
             theme: "light".to_string(),
             shortcut: "Ctrl+Shift+N".to_string(),
+            new_note_shortcut: "Ctrl+Alt+V".to_string(),
             autostart: false,
             check_updates: true,
             window_width: 800,
