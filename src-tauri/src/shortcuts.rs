@@ -3,20 +3,21 @@ use crate::window::{show_main_window, toggle_main_window};
 use tauri::Manager;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
 
-pub fn register_shortcut(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
-    let config = storage::load_config(app.handle());
-    let shortcut = parse_shortcut(&config.shortcut)
+pub fn resolve_shortcut_with_fallback(config_shortcut: &str) -> Shortcut {
+    parse_shortcut(config_shortcut)
         .or_else(|| parse_shortcut("Ctrl+Alt+X"))
         .unwrap_or_else(|| {
             eprintln!("WARNING: fallback shortcut 'Ctrl+Alt+X' failed to parse, using hardcoded shortcut");
-            // Last resort: parse should never fail on this well-formed shortcut,
-            // but if it does, we construct a minimal shortcut to avoid panicking.
             "Ctrl+Alt+X".parse().unwrap_or_else(|_| {
-                // If even this fails, log and use a minimal Ctrl+X shortcut
                 eprintln!("ERROR: all shortcut parsing failed, using Ctrl+X as last resort");
                 "Ctrl+X".parse().expect("Ctrl+X must parse")
             })
-        });
+        })
+}
+
+pub fn register_shortcut(app: &tauri::App) -> Result<(), Box<dyn std::error::Error>> {
+    let config = storage::load_config(app.handle());
+    let shortcut = resolve_shortcut_with_fallback(&config.shortcut);
 
     app.global_shortcut().on_shortcut(shortcut, |app, _shortcut, event| {
         if event.state == tauri_plugin_global_shortcut::ShortcutState::Pressed {

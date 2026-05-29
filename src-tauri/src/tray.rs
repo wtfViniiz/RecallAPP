@@ -5,7 +5,7 @@ use tauri::{
 };
 use crate::window::{show_main_window, toggle_main_window};
 
-pub fn setup_tray(app: &App) -> Result<(), Box<dyn std::error::Error>> {
+pub fn setup_tray(app: &App) -> Result<tauri::tray::TrayIcon, Box<dyn std::error::Error>> {
     let open_i = MenuItem::with_id(app, "open", "Abrir", true, None::<&str>)?;
     let new_note_i = MenuItem::with_id(app, "new_note", "Nova Nota", true, None::<&str>)?;
     let new_reminder_i = MenuItem::with_id(app, "new_reminder", "Novo Lembrete", true, None::<&str>)?;
@@ -22,7 +22,7 @@ pub fn setup_tray(app: &App) -> Result<(), Box<dyn std::error::Error>> {
         .ok_or("Icon not found")?
         .clone();
 
-    let _tray = TrayIconBuilder::new()
+    let tray = TrayIconBuilder::new()
         .icon(icon)
         .tooltip("Recall")
         .menu(&menu)
@@ -67,5 +67,5 @@ pub fn setup_tray(app: &App) -> Result<(), Box<dyn std::error::Error>> {
         })
         .build(app)?;
 
-    Ok(())
+    Ok(tray)
 }

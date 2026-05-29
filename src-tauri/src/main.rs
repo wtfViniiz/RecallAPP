@@ -16,7 +16,8 @@ fn main() {
             let note_cache = cache::NoteCache::new();
             app.manage(note_cache.clone());
 
-            tray::setup_tray(app)?;
+            let tray = tray::setup_tray(app)?;
+            app.manage(tray);
             scheduler::start_scheduler(app.handle().clone(), note_cache);
             shortcuts::register_shortcut(app)?;
 

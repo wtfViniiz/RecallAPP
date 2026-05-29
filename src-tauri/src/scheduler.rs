@@ -114,8 +114,11 @@ fn check_and_fire(app: &AppHandle, cache: &NoteCache) {
                     }
                 };
                 // Catch up: advance past now if multiple periods were missed
+                const MAX_CATCHUP_ITERATIONS: u32 = 1000;
                 let mut final_next = next;
-                while final_next <= now {
+                let mut iterations = 0u32;
+                while final_next <= now && iterations < MAX_CATCHUP_ITERATIONS {
+                    iterations += 1;
                     final_next = match repeat.as_str() {
                         "daily" => {
                             let naive = final_next.naive_utc() + chrono::Duration::days(1);
@@ -139,6 +142,9 @@ fn check_and_fire(app: &AppHandle, cache: &NoteCache) {
                         },
                         _ => break,
                     };
+                }
+                if iterations >= MAX_CATCHUP_ITERATIONS {
+                    eprintln!("[Recall] Warning: reminder {} catch-up exceeded {} iterations", reminder.id, MAX_CATCHUP_ITERATIONS);
                 }
                 reminder.trigger_at = final_next.to_rfc3339();
                 let _ = cache.save_reminder(app, &reminder);
