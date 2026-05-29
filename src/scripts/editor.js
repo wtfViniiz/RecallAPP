@@ -154,29 +154,59 @@ function openEditor(note) {
       e.preventDefault();
       contentInput.focus();
       const sel = window.getSelection();
-      if (!sel.rangeCount || sel.isCollapsed) return;
+      if (!sel.rangeCount) return;
       const range = sel.getRangeAt(0);
       if (!contentInput.contains(range.commonAncestorContainer)) return;
+
       const delta = btn.id === 'btn-font-increase' ? 2 : -2;
+
+      if (sel.isCollapsed) {
+        // No selection: apply to the word under the cursor
+        const node = sel.anchorNode;
+        if (node && node.nodeType === 3) {
+          const text = node.textContent;
+          const offset = sel.anchorOffset;
+          // Find word boundaries
+          let start = offset, end = offset;
+          while (start > 0 && /\S/.test(text[start - 1])) start--;
+          while (end < text.length && /\S/.test(text[end])) end++;
+          if (start < end) {
+            const wordRange = document.createRange();
+            wordRange.setStart(node, start);
+            wordRange.setEnd(node, end);
+            sel.removeAllRanges();
+            sel.addRange(wordRange);
+          }
+        }
+        // If still collapsed, do nothing
+        if (sel.isCollapsed) return;
+      }
+
       // Get current font size from selection anchor
       const anchor = sel.anchorNode.nodeType === 3 ? sel.anchorNode.parentElement : sel.anchorNode;
       const currentSize = parseFloat(getComputedStyle(anchor).fontSize) || 14;
       const newSize = Math.max(10, Math.min(28, currentSize + delta));
+
+      // Save range for selection restore
+      const savedRange = sel.getRangeAt(0).cloneRange();
+
       // Wrap selection in a span with the new font size
       const span = document.createElement('span');
       span.style.fontSize = newSize + 'px';
       try {
-        range.surroundContents(span);
+        savedRange.surroundContents(span);
       } catch {
-        // surroundContents fails on partial element selections — fallback to execCommand
-        document.execCommand('fontSize', false, '7');
-        contentInput.querySelectorAll('font[size="7"]').forEach(font => {
-          const s = document.createElement('span');
-          s.style.fontSize = newSize + 'px';
-          s.innerHTML = font.innerHTML;
-          font.replaceWith(s);
-        });
+        // surroundContents fails on partial element selections — fallback
+        const frag = savedRange.extractContents();
+        span.appendChild(frag);
+        savedRange.insertNode(span);
       }
+
+      // Restore selection around the styled span so user can keep clicking
+      const newRange = document.createRange();
+      newRange.selectNodeContents(span);
+      sel.removeAllRanges();
+      sel.addRange(newRange);
       return;
     }
 
