@@ -27,13 +27,15 @@ fn validate_id(id: &str) -> Result<(), String> {
     if id.is_empty() {
         return Err("ID nao pode ser vazio".to_string());
     }
+    if id.trim().is_empty() {
+        return Err("ID nao pode ser apenas espacos".to_string());
+    }
     let char_count = id.chars().count();
     if char_count > 100 {
         return Err(format!("ID excede 100 caracteres (tem {})", char_count));
     }
-    if id.contains("..") || id.contains('/') || id.contains('\\') || id.contains('\0')
-        || id.contains('"') || id.contains('<') || id.contains('>') || id.contains('\'')
-        || id.contains(':') {
+    // Whitelist: only alphanumeric, hyphen, underscore (UUIDs)
+    if !id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') {
         return Err("ID contem caracteres invalidos".to_string());
     }
     Ok(())
@@ -181,11 +183,10 @@ pub fn empty_trash(app: AppHandle, cache: State<'_, NoteCache>) -> Result<u32, S
             errors.push(format!("{}: {}", note.id, e));
         }
     }
-    if errors.is_empty() {
-        Ok(count)
-    } else {
-        Err(format!("{} notas deletadas, {} erros: {}", count - errors.len() as u32, errors.len(), errors.join("; ")))
+    if !errors.is_empty() {
+        eprintln!("[Recall] Aviso: erros ao esvaziar lixeira: {}", errors.join("; "));
     }
+    Ok(count - errors.len() as u32)
 }
 
 #[tauri::command]
@@ -342,11 +343,8 @@ pub fn snooze_reminder(app: AppHandle, cache: State<'_, NoteCache>, id: String, 
     let mut reminder = cache
         .get_reminder(&app, &id)
         .ok_or("Lembrete nao encontrado")?;
-    let trigger: chrono::DateTime<chrono::Utc> = reminder
-        .trigger_at
-        .parse()
-        .map_err(|e: chrono::ParseError| e.to_string())?;
-    reminder.trigger_at = (trigger + chrono::Duration::minutes(minutes)).to_rfc3339();
+    let now = Utc::now();
+    reminder.trigger_at = (now + chrono::Duration::minutes(minutes)).to_rfc3339();
     reminder.status = "pending".to_string();
     cache.save_reminder(&app, &reminder)
 }
@@ -388,6 +386,32 @@ pub fn update_config(app: AppHandle, input: Config) -> Result<Config, String> {
         }
     }
     storage::save_config(&app, &input)?;
+
+    // Re-register shortcuts so changes take effect immediately
+    if let Err(e) = app.global_shortcut().unregister_all() {
+        eprintln!("[Recall] Aviso: falha ao desregistrar atalhos: {}", e);
+    }
+    let main_shortcut = resolve_shortcut_with_fallback(&input.shortcut);
+    if let Err(e) = app.global_shortcut().on_shortcut(main_shortcut, |app, _shortcut, event| {
+        if event.state == tauri_plugin_global_shortcut::ShortcutState::Pressed {
+            toggle_main_window(app);
+        }
+    }) {
+        eprintln!("[Recall] Aviso: falha ao registrar atalho principal: {}", e);
+    }
+    if !input.new_note_shortcut.is_empty() {
+        if let Some(nn_shortcut) = parse_shortcut(&input.new_note_shortcut) {
+            let _ = app.global_shortcut().on_shortcut(nn_shortcut, |app, _shortcut, event| {
+                if event.state == tauri_plugin_global_shortcut::ShortcutState::Pressed {
+                    show_main_window(app);
+                    if let Some(window) = app.get_webview_window("main") {
+                        let _ = window.eval("window.dispatchEvent(new CustomEvent('tray-action', { detail: 'direct-new-note' }));");
+                    }
+                }
+            });
+        }
+    }
+
     Ok(input)
 }
 
@@ -472,18 +496,23 @@ pub fn save_image(
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
 
     // Detect format from magic bytes
+    // Reject SVG entirely (can contain <script> tags — XSS vector)
+    if data.len() >= 4 && data[0..4] == [0x3C, 0x73, 0x76, 0x67] {
+        return Err("Formato SVG nao suportado por seguranca".to_string());
+    }
+    if data.len() >= 5 && data[0..5] == [0x3C, 0x3F, 0x78, 0x6D, 0x6C] {
+        return Err("Formato SVG nao suportado por seguranca".to_string());
+    }
     let ext = if data.len() >= 4 && data[0..4] == [0x89, 0x50, 0x4E, 0x47] {
         "png"
     } else if data.len() >= 2 && data[0..2] == [0xFF, 0xD8] {
         "jpg"
     } else if data.len() >= 4 && data[0..4] == [0x47, 0x49, 0x46, 0x38] {
         "gif"
-    } else if data.len() >= 4 && data[0..4] == [0x52, 0x49, 0x46, 0x46] {
+    } else if data.len() >= 12 && data[0..4] == [0x52, 0x49, 0x46, 0x46] && data[8..12] == [0x57, 0x45, 0x42, 0x50] {
         "webp"
-    } else if data.len() >= 4 && data[0..4] == [0x3C, 0x73, 0x76, 0x67] {
-        "svg"
     } else {
-        "png"
+        return Err("Formato de imagem nao suportado".to_string())
     };
 
     let filename = format!("{}_{}.{}", safe_id, Uuid::new_v4(), ext);
@@ -649,6 +678,9 @@ pub fn import_data(app: AppHandle, cache: State<'_, NoteCache>, json_data: Strin
     let mut imported_notes = 0;
     let mut imported_reminders = 0;
     let mut skipped = 0;
+    let mut conflicts = 0;
+    let mut seen_note_ids = std::collections::HashSet::new();
+    let mut seen_reminder_ids = std::collections::HashSet::new();
 
     if let Some(notes) = data["notes"].as_array() {
         for note_value in notes {
@@ -657,6 +689,15 @@ pub fn import_data(app: AppHandle, cache: State<'_, NoteCache>, json_data: Strin
                     if validate_id(&note.id).is_err() {
                         skipped += 1;
                         continue;
+                    }
+                    // Skip duplicate IDs within import file
+                    if !seen_note_ids.insert(note.id.clone()) {
+                        skipped += 1;
+                        continue;
+                    }
+                    // Track overwrites of existing notes
+                    if cache.get_note(&app, &note.id).is_some() {
+                        conflicts += 1;
                     }
                     validate_string(&note.title, 500, "Titulo (import)")
                         .map_err(|e| format!("Nota '{}': {}", note.id, e))?;
@@ -692,6 +733,11 @@ pub fn import_data(app: AppHandle, cache: State<'_, NoteCache>, json_data: Strin
             match serde_json::from_value::<Reminder>(reminder_value.clone()) {
                 Ok(reminder) => {
                     if validate_id(&reminder.id).is_err() {
+                        skipped += 1;
+                        continue;
+                    }
+                    // Skip duplicate IDs within import file
+                    if !seen_reminder_ids.insert(reminder.id.clone()) {
                         skipped += 1;
                         continue;
                     }
@@ -746,6 +792,9 @@ pub fn import_data(app: AppHandle, cache: State<'_, NoteCache>, json_data: Strin
     );
     if has_config {
         msg.push_str(" (configuracao ignorada)");
+    }
+    if conflicts > 0 {
+        msg.push_str(&format!(" ({} notas sobrescritas)", conflicts));
     }
     if skipped > 0 {
         Ok(format!("{} ({} itens ignorados)", msg, skipped))
@@ -837,20 +886,19 @@ mod tests {
 
     #[test]
     fn test_validate_id_unicode() {
-        // Unicode characters are allowed in IDs (no restriction against them)
-        assert!(validate_id("nota-accent-áéí").is_ok());
-        assert!(validate_id("日本語テスト").is_ok());
-        assert!(validate_id("café-naïve").is_ok());
-        assert!(validate_id("emoji-🎉").is_ok());
+        // Unicode characters are rejected (whitelist: ASCII alphanumeric, hyphen, underscore only)
+        assert!(validate_id("nota-accent-áéí").is_err());
+        assert!(validate_id("日本語テスト").is_err());
+        assert!(validate_id("café-naïve").is_err());
+        assert!(validate_id("emoji-🎉").is_err());
     }
 
     #[test]
     fn test_validate_id_whitespace_only() {
-        // Whitespace-only IDs are currently allowed (no rule against them)
-        // This test documents the current behavior
-        assert!(validate_id("   ").is_ok());
-        assert!(validate_id("\t").is_ok());
-        assert!(validate_id("\n").is_ok());
+        // Whitespace-only IDs are rejected
+        assert!(validate_id("   ").is_err());
+        assert!(validate_id("\t").is_err());
+        assert!(validate_id("\n").is_err());
     }
 
     #[test]
@@ -899,21 +947,21 @@ mod tests {
 
     #[test]
     fn test_validate_id_with_dots() {
-        // Double dots are blocked (path traversal), but single dots are fine
+        // Dots are blocked entirely (whitelist: alphanumeric, hyphen, underscore only)
         assert!(validate_id("a..b").is_err());
-        assert!(validate_id("a.b").is_ok());
-        assert!(validate_id(".hidden").is_ok());
+        assert!(validate_id("a.b").is_err());
+        assert!(validate_id(".hidden").is_err());
     }
 
     #[test]
     fn test_validate_id_length_is_char_based() {
         // validate_id uses .chars().count() (character count), not .len() (byte length)
-        // CJK chars are 3 bytes each in UTF-8 but count as 1 character
-        let cjk_100 = "日".repeat(100); // 100 chars = 300 bytes -> OK
-        assert!(validate_id(&cjk_100).is_ok());
+        // CJK chars are rejected by whitelist, so test with ASCII
+        let ascii_100 = "a".repeat(100); // 100 chars -> OK
+        assert!(validate_id(&ascii_100).is_ok());
 
-        let cjk_101 = "日".repeat(101); // 101 chars -> ERR
-        assert!(validate_id(&cjk_101).is_err());
+        let ascii_101 = "a".repeat(101); // 101 chars -> ERR
+        assert!(validate_id(&ascii_101).is_err());
     }
 
     #[test]
