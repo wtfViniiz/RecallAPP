@@ -103,7 +103,7 @@ textarea:focus-visible,
   flex: 1;
 }
 
-.tab-settings {
+.tab-icon {
   margin-left: auto;
   padding: 12px;
   display: flex;
@@ -113,12 +113,16 @@ textarea:focus-visible,
   transition: opacity 0.15s, color 0.15s;
 }
 
-.tab-settings:hover {
+.tab-icon:hover {
   opacity: 1;
 }
 
-.tab-settings.active {
+.tab-icon.active {
   opacity: 1;
+}
+
+.tab-icon + .tab-icon {
+  margin-left: 0;
 }
 
 .tab {

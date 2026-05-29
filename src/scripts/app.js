@@ -77,6 +77,7 @@ async function applyTheme() {
 tabs.forEach(tab => {
   tab.addEventListener('click', async () => {
     const target = tab.dataset.tab;
+    if (!target) return; // Help button has no data-tab
 
     // Flush pending saves before leaving notes
     if (notesModule) {
@@ -119,7 +120,7 @@ document.addEventListener('keydown', async (e) => {
     document.getElementById('view-notes').classList.add('active');
     document.getElementById('view-notes').innerHTML = `
       <div class="quick-capture">
-        <textarea id="quick-capture-input" placeholder="Anotacao rapida..." autofocus></textarea>
+        <textarea id="quick-capture-input" placeholder="Anotacao rapida..."></textarea>
         <div class="quick-capture-actions">
           <button class="btn btn-secondary" id="quick-capture-cancel">Cancelar</button>
           <button class="btn btn-primary" id="quick-capture-save">Salvar</button>
@@ -127,15 +128,20 @@ document.addEventListener('keydown', async (e) => {
       </div>
     `;
     const input = document.getElementById('quick-capture-input');
-    input.focus();
+    setTimeout(() => input.focus(), 50);
     document.getElementById('quick-capture-cancel').addEventListener('click', () => {
       document.querySelector('[data-tab="notes"]').click();
     });
     document.getElementById('quick-capture-save').addEventListener('click', async () => {
       const content = input.value.trim();
       if (content) {
-        await api.createNote({ title: content.split('\n')[0].slice(0, 50), content, tags: ['rascunho'] });
-        showToast('Nota rapida salva', 'success');
+        await api.createNote({
+          title: content.split('\n')[0].slice(0, 50),
+          content,
+          tags: ['rascunho'],
+          temporary: true,
+        });
+        showToast('Nota rapida salva (expira em 24h)', 'success');
       }
       document.querySelector('[data-tab="notes"]').click();
     });
@@ -183,20 +189,26 @@ document.addEventListener('keydown', async (e) => {
     return;
   }
 
-  // Escape to hide
+  // Escape to hide (with auto-save)
   if (e.key === 'Escape' && !isPinned) {
     try {
+      if (notesModule) {
+        await notesModule.flushPendingSave();
+      }
       await window.__TAURI_INTERNALS__.invoke('plugin:window|set_visible', { visible: false });
     } catch (err) {}
     return;
   }
 });
 
-// Click outside to hide
+// Click outside to hide (with auto-save)
 document.addEventListener('mousedown', async (e) => {
   const appEl = document.getElementById('app');
   if (!appEl.contains(e.target) && !isPinned) {
     try {
+      if (notesModule) {
+        await notesModule.flushPendingSave();
+      }
       await window.__TAURI_INTERNALS__.invoke('plugin:window|set_visible', { visible: false });
     } catch (err) {}
   }
@@ -242,18 +254,53 @@ if (helpBtn) {
     overlay.className = 'modal-overlay';
     const modal = document.createElement('div');
     modal.className = 'modal-confirm';
-    modal.style.maxWidth = '400px';
+    modal.style.maxWidth = '440px';
+    modal.style.maxHeight = '80vh';
+    modal.style.overflowY = 'auto';
     modal.innerHTML = `
-      <div class="modal-confirm-message" style="margin-bottom:12px;font-size:16px">Como usar o Recall</div>
-      <div style="font-size:13px;color:var(--text-secondary);line-height:1.5;margin-bottom:16px">
-        <p style="margin-bottom:8px"><strong>Notas:</strong> Ctrl+N cria uma nova nota. Ctrl+Shift+N para anotacao rapida (expira em 24h). Arraste para reordenar.</p>
-        <p style="margin-bottom:8px"><strong>Busca:</strong> Ctrl+P para buscar. Filtre por categoria ou tag.</p>
-        <p style="margin-bottom:8px"><strong>Lembretes:</strong> Crie lembretes com data, horario ou recorrencia.</p>
-        <p style="margin-bottom:8px"><strong>Templates:</strong> Salve notas como templates para reutilizar.</p>
-        <p style="margin-bottom:8px"><strong>Atalhos:</strong> Ctrl+, abre configuracoes. Escape fecha a janela.</p>
-        <p><strong>Fixar:</strong> Clique no pin no header para manter a janela visivel.</p>
+      <div class="modal-confirm-message" style="margin-bottom:16px;font-size:16px">Guia do Recall</div>
+      <div style="font-size:13px;color:var(--text-secondary);line-height:1.6">
+        <div style="margin-bottom:14px">
+          <div style="color:var(--text-primary);font-weight:600;margin-bottom:4px">Notas</div>
+          <p>Crie notas a partir de templates prontos (Reuniao, Tarefa, Diario, Estudo) ou em branco. Arraste os cards para reorganizar. Fixe notas importantes com o icone de pin.</p>
+        </div>
+        <div style="margin-bottom:14px">
+          <div style="color:var(--text-primary);font-weight:600;margin-bottom:4px">Editor</div>
+          <p>Use a barra de formatacao para negrito, italico, listas, citacoes e links. Cole imagens direto do clipboard. Suas notas sao salvas manualmente com Ctrl+S ou o botao de salvar. Ao sair do editor, o salvamento ocorre automaticamente.</p>
+        </div>
+        <div style="margin-bottom:14px">
+          <div style="color:var(--text-primary);font-weight:600;margin-bottom:4px">Busca e Filtros</div>
+          <p>Use Ctrl+P para buscar. Filtre por categoria ou tag nos dropdowns acima da lista. Botao "Recentes" mostra as ultimas 10 notas editadas.</p>
+        </div>
+        <div style="margin-bottom:14px">
+          <div style="color:var(--text-primary);font-weight:600;margin-bottom:4px">Lembretes</div>
+          <p>Crie lembretes com data/horario, recorrencia (diario, semanal, mensal) ou timer relativo. Vincule lembretes a notas. Quando disparar, snooze ou dismisso.</p>
+        </div>
+        <div style="margin-bottom:14px">
+          <div style="color:var(--text-primary);font-weight:600;margin-bottom:4px">Templates</div>
+          <p>Salve qualquer nota como template reutilizavel. Acesse o seletor de templates ao criar uma nova nota. Templates customizados podem ser excluidos.</p>
+        </div>
+        <div style="margin-bottom:14px">
+          <div style="color:var(--text-primary);font-weight:600;margin-bottom:4px">Lixeira</div>
+          <p>Notas excluidas vao para a lixeira. Restaure individualmente ou esvazie tudo. Notas temporarias (captura rapida) sao movidas automaticamente apos 24h.</p>
+        </div>
+        <div style="margin-bottom:14px">
+          <div style="color:var(--text-primary);font-weight:600;margin-bottom:4px">Atalhos</div>
+          <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:12px">
+            <kbd style="background:var(--bg-tertiary);padding:2px 6px;border-radius:4px;font-family:monospace">Ctrl+N</kbd><span>Nova nota</span>
+            <kbd style="background:var(--bg-tertiary);padding:2px 6px;border-radius:4px;font-family:monospace">Ctrl+Shift+N</kbd><span>Captura rapida (24h)</span>
+            <kbd style="background:var(--bg-tertiary);padding:2px 6px;border-radius:4px;font-family:monospace">Ctrl+P</kbd><span>Buscar</span>
+            <kbd style="background:var(--bg-tertiary);padding:2px 6px;border-radius:4px;font-family:monospace">Ctrl+S</kbd><span>Salvar nota</span>
+            <kbd style="background:var(--bg-tertiary);padding:2px 6px;border-radius:4px;font-family:monospace">Ctrl+,</kbd><span>Configuracoes</span>
+            <kbd style="background:var(--bg-tertiary);padding:2px 6px;border-radius:4px;font-family:monospace">Escape</kbd><span>Fechar janela</span>
+          </div>
+        </div>
+        <div>
+          <div style="color:var(--text-primary);font-weight:600;margin-bottom:4px">Dicas</div>
+          <p>O icone na barra de tarefas permite acessar o Recall sem lembrar o atalho. Use o pin no header para manter a janela sempre visivel. Configuracoes permitem personalizar tema, atalhos e tamanho da fonte.</p>
+        </div>
       </div>
-      <div class="modal-confirm-actions">
+      <div class="modal-confirm-actions" style="margin-top:16px">
         <button class="btn btn-secondary" id="help-close">Fechar</button>
       </div>
     `;
