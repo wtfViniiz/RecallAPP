@@ -34,12 +34,7 @@ function setupGlobalKeyListeners() {
   if (keyListenersAttached) return;
   keyListenersAttached = true;
 
-  document.addEventListener('keydown', (e) => {
-    if (e.ctrlKey && e.key === 's' && currentView === 'editor') {
-      e.preventDefault();
-      saveNote(false);
-    }
-  });
+  // Ctrl+S is now handled exclusively by editor.js (manual save with animated indicator)
 }
 
 async function renderNotesList() {

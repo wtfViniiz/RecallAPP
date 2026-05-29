@@ -4,6 +4,9 @@ import { icons } from './icons.js';
 import { renderNotesList, getCurrentView, setCurrentView, getAllCategories, getAllTags } from './notes.js';
 
 let currentNote = null;
+let ctrlSHandler = null;
+let previewClickHandler = null;
+let dropdownCloseHandler = null;
 
 export { openEditor, flushPendingSave, saveNote };
 
@@ -14,6 +17,11 @@ async function flushPendingSave() {
 }
 
 function openEditor(note) {
+  // Clean up previous document-level listeners to prevent leaks
+  if (ctrlSHandler) { document.removeEventListener('keydown', ctrlSHandler); ctrlSHandler = null; }
+  if (previewClickHandler) { document.removeEventListener('mousedown', previewClickHandler); previewClickHandler = null; }
+  if (dropdownCloseHandler) { document.removeEventListener('click', dropdownCloseHandler); dropdownCloseHandler = null; }
+
   setCurrentView('editor');
   currentNote = note;
   const container = document.getElementById('view-notes');
@@ -227,7 +235,7 @@ function openEditor(note) {
   document.getElementById('btn-save-manual').addEventListener('click', doSave);
 
   // Ctrl+S manual save
-  const ctrlSHandler = (e) => {
+  ctrlSHandler = (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 's') {
       e.preventDefault();
       doSave();
@@ -269,7 +277,6 @@ function openEditor(note) {
                 contentInput.appendChild(img);
               }
               showToast('Imagem colada', 'success');
-              autoSave();
             } catch (err) {
               showToast(err.message || 'Erro ao colar imagem', 'error');
             }
@@ -292,7 +299,6 @@ function openEditor(note) {
         .replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, '')
         .replace(/<embed\b[^>]*>/gi, '');
       document.execCommand('insertHTML', false, sanitized);
-      autoSave();
     }
     // Plain text paste: let browser handle it (safe)
   });
@@ -388,7 +394,7 @@ function openEditor(note) {
   const editorWrapper = document.getElementById('editor-wrapper');
   const previewDiv = document.getElementById('markdown-preview');
 
-  const previewClickHandler = (e) => {
+  previewClickHandler = (e) => {
     const isInsideEditor = editorWrapper.contains(e.target) ||
                            e.target.closest('.markdown-toolbar') ||
                            e.target.closest('.header') ||
@@ -514,7 +520,8 @@ function openEditor(note) {
       e.stopPropagation();
       menuDropdown.classList.toggle('open');
     });
-    document.addEventListener('click', () => menuDropdown.classList.remove('open'));
+    dropdownCloseHandler = () => menuDropdown.classList.remove('open');
+    document.addEventListener('click', dropdownCloseHandler);
     menuDropdown.addEventListener('click', (e) => {
       const item = e.target.closest('.editor-menu-item');
       if (!item) return;
