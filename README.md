@@ -1,92 +1,126 @@
-# Recall
+<p align="center">
+  <img src="src-tauri/icons/icon.png" alt="Recall" width="128">
+</p>
 
-A fast, keyboard-first note-taking app that lives in your system tray. Built with [Tauri 2](https://v2.tauri.app/), Rust, and vanilla JS.
+<h1 align="center">Recall</h1>
+
+<p align="center">
+  <strong>Captura e organizacao pessoal direto da system tray.<br>Abre, anota, some.</strong>
+</p>
+
+<p align="center">
+  <a href="#features">Features</a> &bull;
+  <a href="#stack">Stack</a> &bull;
+  <a href="#getting-started">Getting Started</a> &bull;
+  <a href="#shortcuts">Shortcuts</a> &bull;
+  <a href="#license">License</a>
+</p>
+
+---
 
 ## Features
 
-- **WYSIWYG editor** with markdown toolbar (bold, italic, headings, lists, quotes, links)
-- **System tray integration** — launch with a global shortcut, dismiss with Escape
-- **Quick capture** (`Ctrl+Shift+N`) — jot down notes that auto-expire after 24h
-- **Reminders** with recurring schedules (daily/weekly/monthly) and native notifications
-- **Templates** — built-in (Meeting, Task, Diary, Study) + custom templates
-- **Version history** — up to 20 snapshots per note, restore any version
-- **Categories & tags** with drag-and-drop reordering
-- **Image paste** — paste screenshots directly from clipboard
-- **Import/export** — full JSON backup with validation and conflict detection
-- **Dark & light themes** with customizable font size
-- **Configurable shortcuts** — two global shortcuts (open app + quick new note)
-- **Always-on-top** pin mode
+| Feature | Descricao |
+|---------|-----------|
+| **Editor WYSIWYG** | Negrito, italico, headings, listas, citacoes, links, imagens |
+| **System tray** | Abre com atalho global, fecha com Escape, icone na barra de tarefas |
+| **Captura rapida** | `Ctrl+Shift+N` — nota temporaria que expira em 24h |
+| **Lembretes** | Recorrencia diaria/semanal/mensal, notificacoes nativas |
+| **Templates** | Reuniao, Tarefa, Diario, Estudo + templates customizados |
+| **Historico de versoes** | Ate 20 snapshots por nota, restaurar qualquer versao |
+| **Categorias e tags** | Filtro por categoria/tag, drag-and-drop para reordenar |
+| **Imagem do clipboard** | Cole screenshots direto no editor |
+| **Import/export** | Backup JSON completo com validacao e deteccao de conflitos |
+| **Temas** | Dark e light com tamanho de fonte personalizavel |
+| **Atalhos configuraveis** | Dois atalhos globais (abrir app + nova nota) |
+| **Pin mode** | Janela sempre visivel (always-on-top) |
 
 ## Stack
 
-| Layer | Tech |
-|-------|------|
-| Runtime | Tauri 2.x |
+| Camada | Tecnologia |
+|--------|------------|
+| Runtime | [Tauri 2.x](https://v2.tauri.app/) |
 | Backend | Rust (serde, chrono, uuid, base64) |
-| Frontend | Vanilla JS (ES modules, no bundler) |
-| Storage | JSON files (one per note/reminder) |
-| Icons | Inline SVG (Lucide) |
-| Tests | 190+ Rust unit/integration tests, 28 Vitest tests |
+| Frontend | Vanilla JS (ES modules, zero bundler) |
+| Armazenamento | JSON local (um arquivo por nota/lembrete) |
+| Icones | SVG inline ([Lucide](https://lucide.dev/)) |
+| Testes | 190+ Rust (unit + integration) + 28 Vitest |
 
-Zero runtime JS dependencies.
+**Zero dependencias JS em runtime.**
+
+## Requirements
+
+| Componente | Versao |
+|------------|--------|
+| Rust | 1.70+ |
+| Node.js | 18+ (apenas para testes) |
+| OS | Windows 10/11 |
 
 ## Getting Started
 
 ```bash
-# Prerequisites: Rust, Node.js, Tauri CLI
+# Instalar Tauri CLI
 cargo install tauri-cli
 
-# Run in dev mode
+# Modo desenvolvimento
 cargo tauri dev
 
-# Build installer
+# Gerar instalador
 cargo tauri build
 ```
 
-The app starts minimized to the system tray. Click the tray icon or press `Ctrl+Alt+X` to open.
+O app inicia minimizado na system tray. Clique no icone da tray ou pressione `Ctrl+Alt+X` para abrir.
 
 ## Shortcuts
 
-| Shortcut | Action |
-|----------|--------|
-| `Ctrl+Alt+X` | Toggle app window |
-| `Ctrl+N` | New note |
-| `Ctrl+Shift+N` | Quick capture (24h temporary) |
-| `Ctrl+P` | Focus search |
-| `Ctrl+S` | Save note (in editor) |
-| `Ctrl+,` | Open settings |
-| `Escape` | Hide window |
+| Atalho | Acao |
+|--------|------|
+| `Ctrl+Alt+X` | Abrir/fechar janela |
+| `Ctrl+N` | Nova nota |
+| `Ctrl+Shift+N` | Captura rapida (24h) |
+| `Ctrl+P` | Buscar |
+| `Ctrl+S` | Salvar nota |
+| `Ctrl+,` | Configuracoes |
+| `Escape` | Fechar janela |
 
 ## Project Structure
 
 ```
 src-tauri/src/
-  main.rs          # App bootstrap, plugin setup
-  commands.rs      # 30+ IPC commands (the entire API surface)
-  models.rs        # Data structs, DTOs, filters
-  storage.rs       # JSON file persistence (atomic writes)
-  cache.rs         # In-memory cache with lazy invalidation
-  scheduler.rs     # Background reminder polling
-  shortcuts.rs     # Global shortcut parsing/registration
-  tray.rs          # System tray icon and context menu
-  window.rs        # Window show/toggle/focus logic
+  main.rs          # Bootstrap, plugins, IPC
+  commands.rs      # 30+ comandos IPC (toda a API)
+  models.rs        # Structs, DTOs, filtros
+  storage.rs       # Persistencia JSON (atomic writes)
+  cache.rs         # Cache in-memory com invalidacao lazy
+  scheduler.rs     # Polling de lembretes em background
+  shortcuts.rs     # Parsing/registro de atalhos globais
+  tray.rs          # Icone da tray e menu de contexto
+  window.rs        # Show/toggle/focus da janela
 
 src/
-  index.html       # Single-page shell
+  index.html       # Shell single-page
   scripts/
-    app.js         # Entry point, tab switching, shortcuts
-    notes.js       # Notes list, search, filters, drag-drop
-    editor.js      # WYSIWYG editor, toolbar, version history
-    reminders.js   # Reminders list, calendar view
-    settings.js    # Theme, shortcuts, font size, backup
-    utils.js       # Markdown, toasts, sanitization, formatters
-    icons.js       # Lucide SVG icon library
-    api.js         # Tauri IPC bridge
+    app.js         # Entry point, tabs, atalhos
+    notes.js       # Lista, busca, filtros, drag-drop
+    editor.js      # WYSIWYG, toolbar, historico
+    reminders.js   # Lista, calendario
+    settings.js    # Tema, atalhos, fonte, backup
+    utils.js       # Markdown, toasts, sanitizacao
+    icons.js       # Biblioteca de icones Lucide
+    api.js         # Bridge IPC Tauri
   styles/
     base.css       # Reset, layout, scrollbar
-    themes.css     # Dark/light CSS variables
-    components.css # Cards, buttons, editor, calendar, modals
+    themes.css     # Variaveis CSS dark/light
+    components.css # Cards, botoes, editor, calendario, modais
 ```
+
+## Build
+
+```bash
+cargo tauri build
+```
+
+Gera o instalador NSIS em `src-tauri/target/release/bundle/nsis/`.
 
 ## License
 
