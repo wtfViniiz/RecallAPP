@@ -1,5 +1,6 @@
 import { api } from './api.js';
-import { formatDate, formatDateTime, escapeHtml, sanitizeUrl, toAssetUrl, showToast, showConfirm, renderMarkdown, htmlToMarkdown, markdownToHtml, DEFAULT_CATEGORIES, DEFAULT_TAGS, NOTE_TEMPLATES } from './utils.js';
+import { formatDate, formatDateTime, escapeHtml, sanitizeUrl, toAssetUrl, showToast, showConfirm, renderMarkdown, htmlToMarkdown, markdownToHtml, DEFAULT_CATEGORIES, DEFAULT_TAGS, NOTE_TEMPLATES, debounce } from './utils.js';
+import { icons } from './icons.js';
 
 let currentView = 'list';
 let currentNote = null;
@@ -13,8 +14,10 @@ let notesOffset = 0;
 const NOTES_PAGE_SIZE = 30;
 
 export async function initNotes() {
+  console.log('[Notes] initNotes called');
   setupGlobalKeyListeners();
   await renderNotesList();
+  console.log('[Notes] renderNotesList done');
 }
 
 export async function flushPendingSave() {
@@ -25,6 +28,11 @@ export async function flushPendingSave() {
       await saveNote(true);
     }
   }
+}
+
+export function openEditorDirect() {
+  currentView = 'editor';
+  openEditor(null);
 }
 
 function setupGlobalKeyListeners() {
@@ -51,8 +59,8 @@ async function renderNotesList() {
     <div class="filter-row">
       <select id="filter-category"><option value="">Todas categorias</option></select>
       <select id="filter-tag"><option value="">Todas tags</option></select>
-      <button class="btn btn-secondary btn-sm" id="btn-recent" title="Recentes">&#128336; Recent</button>
-      <button class="btn btn-secondary btn-sm" id="btn-trash" title="Lixeira">&#128465; Lixeira</button>
+      <button class="btn btn-secondary btn-sm" id="btn-recent" title="Recentes">${icons.clock(14)} Recent</button>
+      <button class="btn btn-secondary btn-sm" id="btn-trash" title="Lixeira">${icons.trash(14)} Lixeira</button>
     </div>
     <div id="notes-list"></div>
   `;
@@ -89,7 +97,7 @@ function renderNoteCards(notes, searchQuery) {
     <div class="card ${note.pinned ? 'pinned' : ''}" data-id="${escapeHtml(note.id)}" draggable="true">
       <div class="card-header">
         <div class="card-title">${highlightMatch(note.title || 'Sem titulo', searchQuery)}</div>
-        <button class="btn-icon delete-note-btn" data-id="${escapeHtml(note.id)}" title="Excluir">&#128465;</button>
+        <button class="btn-icon delete-note-btn" data-id="${escapeHtml(note.id)}" title="Excluir">${icons.trash(14)}</button>
       </div>
       <div class="card-meta">
         ${note.category ? `<span>${escapeHtml(note.category)}</span>` : ''}
@@ -199,6 +207,7 @@ async function loadNotes(append = false) {
   try {
     result = await api.getNotes(filter);
   } catch (err) {
+    console.error('Erro ao carregar notas:', err);
     showToast('Erro ao carregar notas', 'error');
     return;
   }
@@ -207,7 +216,7 @@ async function loadNotes(append = false) {
   const list = document.getElementById('notes-list');
 
   if (!append && notes.length === 0) {
-    list.innerHTML = '<div class="empty">Nenhuma nota encontrada</div>';
+    list.innerHTML = `<div class="empty">${icons['file-text'](32)}<p>Nenhuma nota encontrada</p></div>`;
     allLoadedNotes = [];
     return;
   }
@@ -246,7 +255,7 @@ async function loadRecentNotes() {
   const list = document.getElementById('notes-list');
 
   if (recent.length === 0) {
-    list.innerHTML = '<div class="empty">Nenhuma nota recente</div>';
+    list.innerHTML = `<div class="empty">${icons.clock(32)}<p>Nenhuma nota recente</p></div>`;
     return;
   }
 
@@ -285,7 +294,7 @@ async function renderTrashList() {
   const list = document.getElementById('trash-list');
 
   if (notes.length === 0) {
-    list.innerHTML = '<div class="empty">Lixeira vazia</div>';
+    list.innerHTML = `<div class="empty">${icons.trash(32)}<p>Lixeira vazia</p></div>`;
     return;
   }
 
@@ -357,20 +366,20 @@ async function showTemplateSelector() {
     </div>
     <div class="template-grid">
       <div class="template-card" data-template="blank">
-        <div class="template-icon">&#128221;</div>
+        <div class="template-icon">${icons['file-plus'](24)}</div>
         <div class="template-name">Em branco</div>
       </div>
       ${Object.entries(NOTE_TEMPLATES).map(([key, tpl]) => `
         <div class="template-card" data-template="${key}">
-          <div class="template-icon">${key === 'reuniao' ? '&#128101;' : key === 'tarefa' ? '&#9745;' : key === 'diario' ? '&#128214;' : '&#127891;'}</div>
+          <div class="template-icon">${key === 'reuniao' ? icons.users(24) : key === 'tarefa' ? icons['check-square'](24) : key === 'diario' ? icons['book-open'](24) : icons['graduation-cap'](24)}</div>
           <div class="template-name">${tpl.name}</div>
         </div>
       `).join('')}
       ${customTemplates.map(tpl => `
         <div class="template-card" data-template="custom:${tpl.id}">
-          <div class="template-icon">${escapeHtml(tpl.icon || '\u{1F4DD}')}</div>
+          <div class="template-icon">${icons['file-text'](24)}</div>
           <div class="template-name">${escapeHtml(tpl.name)}</div>
-          <button class="btn-icon delete-template-btn" data-id="${escapeHtml(tpl.id)}" title="Excluir template" style="position:absolute;top:4px;right:4px;font-size:12px;">&times;</button>
+          <button class="btn-icon delete-template-btn" data-id="${escapeHtml(tpl.id)}" title="Excluir template" style="position:absolute;top:4px;right:4px;font-size:12px;">${icons.x(12)}</button>
         </div>
       `).join('')}
     </div>
@@ -433,8 +442,8 @@ function openTemplateEditor(tpl) {
       <input type="text" id="tpl-name" class="form-input" value="${tpl ? escapeHtml(tpl.name) : ''}" placeholder="Ex: Minha Reuniao">
     </div>
     <div class="form-group">
-      <label>Icon (emoji)</label>
-      <input type="text" id="tpl-icon" class="form-input" value="${tpl ? escapeHtml(tpl.icon || '') : ''}" placeholder="&#128221;" maxlength="4">
+      <label>Icone (emoji ou texto)</label>
+      <input type="text" id="tpl-icon" class="form-input" value="${tpl ? escapeHtml(tpl.icon || '') : ''}" placeholder="Opcional" maxlength="4">
     </div>
     <div class="form-group">
       <label>Titulo padrao</label>
@@ -480,11 +489,11 @@ function openEditor(note) {
     <div class="header">
       <button class="btn btn-secondary" id="btn-back">Voltar</button>
       <div class="header-actions">
-        <button class="btn btn-secondary" id="btn-toggle-preview" title="Visualizar">&#128065;</button>
-        <button class="btn btn-secondary" id="btn-copy-all" title="Copiar tudo">&#128203;</button>
-        <button class="btn btn-secondary" id="btn-save-template" title="Salvar como template">&#128203;TPL</button>
-        ${note ? `<button class="btn btn-secondary" id="btn-versions" title="Historico de versoes">&#128337;</button>` : ''}
-        ${note ? `<button class="btn btn-secondary" id="btn-pin-note" title="Fixar na lista">${note.pinned ? '&#9733;' : '&#9734;'}</button>` : ''}
+        <button class="btn btn-secondary" id="btn-toggle-preview" title="Visualizar">${icons.eye(16)}</button>
+        <button class="btn btn-secondary" id="btn-copy-all" title="Copiar tudo">${icons.clipboard(16)}</button>
+        <button class="btn btn-secondary" id="btn-save-template" title="Salvar como template">${icons['file-text'](16)}</button>
+        ${note ? `<button class="btn btn-secondary" id="btn-versions" title="Historico de versoes">${icons.history(16)}</button>` : ''}
+        ${note ? `<button class="btn btn-secondary" id="btn-pin-note" title="Fixar na lista">${note.pinned ? icons['star-filled'](16) : icons.star(16)}</button>` : ''}
         ${note ? `<button class="btn btn-danger" id="btn-delete-note">Excluir</button>` : ''}
       </div>
     </div>
@@ -512,14 +521,14 @@ function openEditor(note) {
       </div>
     </div>
     <div class="markdown-toolbar" id="markdown-toolbar">
-      <button type="button" class="toolbar-btn" data-command="bold" title="Negrito (Ctrl+B)"><strong>B</strong></button>
-      <button type="button" class="toolbar-btn" data-command="italic" title="Italico (Ctrl+I)"><em>I</em></button>
-      <button type="button" class="toolbar-btn" data-command="strikeThrough" title="Tachado"><s>S</s></button>
-      <button type="button" class="toolbar-btn" data-command="formatBlock" data-value="H3" title="Titulo">H</button>
-      <button type="button" class="toolbar-btn" data-command="insertUnorderedList" title="Lista">&#8226;</button>
-      <button type="button" class="toolbar-btn" data-command="formatBlock" data-value="BLOCKQUOTE" title="Citacao">&#8220;</button>
-      <button type="button" class="toolbar-btn" id="btn-insert-code" title="Codigo">&lt;/&gt;</button>
-      <button type="button" class="toolbar-btn" id="btn-insert-link" title="Link">&#128279;</button>
+      <button type="button" class="toolbar-btn" data-command="bold" title="Negrito (Ctrl+B)">${icons.bold(14)}</button>
+      <button type="button" class="toolbar-btn" data-command="italic" title="Italico (Ctrl+I)">${icons.italic(14)}</button>
+      <button type="button" class="toolbar-btn" data-command="strikeThrough" title="Tachado">${icons.strikethrough(14)}</button>
+      <button type="button" class="toolbar-btn" data-command="formatBlock" data-value="H3" title="Titulo">${icons.heading(14)}</button>
+      <button type="button" class="toolbar-btn" data-command="insertUnorderedList" title="Lista">${icons.list(14)}</button>
+      <button type="button" class="toolbar-btn" data-command="formatBlock" data-value="BLOCKQUOTE" title="Citacao">${icons.quote(14)}</button>
+      <button type="button" class="toolbar-btn" id="btn-insert-code" title="Codigo">${icons.code(14)}</button>
+      <button type="button" class="toolbar-btn" id="btn-insert-link" title="Link">${icons.link(14)}</button>
     </div>
     <div class="editor-wrapper" id="editor-wrapper">
       <div class="editor-container">
@@ -794,12 +803,12 @@ function openEditor(note) {
       previewDiv.style.display = 'block';
       const md = htmlToMarkdown(contentInput.innerHTML);
       previewDiv.innerHTML = renderMarkdown(md);
-      toggleBtn.innerHTML = '&#9998;';
+      toggleBtn.innerHTML = icons.edit(16);
       toggleBtn.title = 'Editar';
     } else {
       editorWrapper.style.display = 'flex';
       previewDiv.style.display = 'none';
-      toggleBtn.innerHTML = '&#128065;';
+      toggleBtn.innerHTML = icons.eye(16);
       toggleBtn.title = 'Visualizar';
     }
   });
@@ -815,7 +824,7 @@ function openEditor(note) {
         try {
           const versions = await api.listNoteVersions(note.id);
           if (versions.length === 0) {
-            listDiv.innerHTML = '<div class="empty">Nenhuma versao anterior</div>';
+            listDiv.innerHTML = `<div class="empty">${icons.history(32)}<p>Nenhuma versao anterior</p></div>`;
           } else {
             listDiv.innerHTML = versions.map(v => `
               <div class="version-item" data-version-id="${escapeHtml(v.id)}">
@@ -903,7 +912,6 @@ function openEditor(note) {
 
   setupChipInput('category-chips', 'note-category-input', allCategories, false);
   setupChipInput('tag-chips', 'note-tags-input', allTags, true);
-}
 }
 
 function setupChipInput(containerId, inputId, suggestions, allowMultiple) {
@@ -998,10 +1006,3 @@ async function saveNote(silent = false) {
   }
 }
 
-function debounce(fn, ms) {
-  let timer;
-  return (...args) => {
-    clearTimeout(timer);
-    timer = setTimeout(() => fn(...args), ms);
-  };
-}

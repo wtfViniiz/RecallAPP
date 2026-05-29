@@ -318,6 +318,14 @@ function getTodayFormatted() {
   return new Date().toLocaleDateString('pt-BR');
 }
 
+export function debounce(fn, delay) {
+  let timer = null;
+  return function (...args) {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn.apply(this, args), delay);
+  };
+}
+
 export const NOTE_TEMPLATES = {
   'reuniao': {
     name: 'Reuniao',
