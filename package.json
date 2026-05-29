@@ -1,0 +1,28 @@
+{
+  "name": "recall",
+  "version": "1.0.0",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "test:frontend": "vitest run src/scripts/__tests__/",
+    "test:frontend:watch": "vitest src/scripts/__tests__/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wtfViniiz/RecallAPP.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/wtfViniiz/RecallAPP/issues"
+  },
+  "homepage": "https://github.com/wtfViniiz/RecallAPP#readme",
+  "description": "",
+  "devDependencies": {
+    "vitest": "^4.1.7"
+  }
+}
