@@ -58,8 +58,8 @@
   opacity: 1;
 }
 
-.delete-note-btn:hover {
-  color: var(--danger) !important;
+.card:hover .delete-note-btn:hover {
+  color: var(--danger);
 }
 
 /* Buttons */
