@@ -1,7 +1,7 @@
 {
   "productName": "Recall",
-  "version": "0.0.1-beta",
-  "identifier": "com.recall.app",
+  "version": "0.0.1",
+  "identifier": "com.recall.desktop",
   "build": {
     "frontendDist": "../src"
   },
