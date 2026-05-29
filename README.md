@@ -8,6 +8,7 @@ Captura e organizacao pessoal direto da system tray. Abre, anota, some.
 - Lembretes com calendario e recorrencia
 - Templates personalizaveis
 - Import/export de dados
+- Notas temporarias (24h)
 - Tudo local, tudo offline
 
 ## Stack
@@ -15,7 +16,7 @@ Captura e organizacao pessoal direto da system tray. Abre, anota, some.
 - **Backend:** Rust + Tauri 2.x
 - **Frontend:** Vanilla JS, HTML, CSS
 - **Armazenamento:** JSON local com atomic writes
-- **Testes:** 190 Rust + 28 frontend
+- **Testes:** 190+ Rust + 28 frontend
 
 ## Rodando
 
@@ -35,7 +36,7 @@ Gera um instalador `.msi` em `src-tauri/target/release/bundle/`.
 
 | Atalho | Acao |
 |--------|------|
-| Ctrl+Shift+N | Nota rapida |
+| Ctrl+Shift+N | Nota rapida (temporaria, 24h) |
 | Ctrl+N | Nova nota |
 | Ctrl+P | Buscar |
 | Ctrl+, | Configuracoes |

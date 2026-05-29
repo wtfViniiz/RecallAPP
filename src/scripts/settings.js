@@ -17,28 +17,28 @@ export async function initSettings() {
     <div class="form-group">
       <label>Tema</label>
       <div class="radio-group">
-        <label><input type="radio" name="theme" value="dark" ${config.theme === 'dark' ? 'checked' : ''}> Dark</label>
-        <label><input type="radio" name="theme" value="light" ${config.theme === 'light' ? 'checked' : ''}> Light</label>
+        <label><input type="radio" name="theme" value="light" ${config.theme === 'light' ? 'checked' : ''}> Claro</label>
+        <label><input type="radio" name="theme" value="dark" ${config.theme === 'dark' ? 'checked' : ''}> Escuro</label>
       </div>
     </div>
     <div class="form-group">
-      <label>Atalho global</label>
+      <label>Atalho de abertura</label>
       <div class="shortcut-capture" id="shortcut-display" tabindex="0" title="Clique para gravar">
         ${formatShortcut(config.shortcut)}
       </div>
       <input type="hidden" id="setting-shortcut" value="${config.shortcut}">
       <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">
-        Clique e pressione a combinacao desejada
+        Defina o atalho para abrir o aplicativo.
       </div>
     </div>
     <div class="form-group">
-      <label>Atalho nova nota direta</label>
+      <label>Atalho nota rápida</label>
       <div class="shortcut-capture" id="new-note-shortcut-display" tabindex="0" title="Clique para gravar">
         ${config.new_note_shortcut ? formatShortcut(config.new_note_shortcut) : 'Nenhum'}
       </div>
       <input type="hidden" id="setting-new-note-shortcut" value="${config.new_note_shortcut || ''}">
       <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">
-        Abre editor direto sem seletor de template. Clique para gravar.
+        Defina o atalho para criar uma nova nota.
       </div>
     </div>
     <div class="form-group" style="display:flex; justify-content:space-between; align-items:center;">
@@ -47,6 +47,15 @@ export async function initSettings() {
         <input type="checkbox" id="setting-autostart" ${config.autostart ? 'checked' : ''}>
         <span class="slider"></span>
       </label>
+    </div>
+    <div class="form-group">
+      <label>Tamanho da fonte</label>
+      <div class="font-size-control">
+        <span class="font-size-label">A</span>
+        <input type="range" id="setting-font-size" min="12" max="20" step="1" value="${config.font_size || 14}" class="font-size-slider">
+        <span class="font-size-label font-size-label-lg">A</span>
+        <span class="font-size-value" id="font-size-value">${config.font_size || 14}px</span>
+      </div>
     </div>
     <div class="form-group">
       <label>Backup</label>
@@ -69,6 +78,17 @@ export async function initSettings() {
     });
   });
 
+  // Font size slider live preview
+  const fontSizeSlider = document.getElementById('setting-font-size');
+  const fontSizeValue = document.getElementById('font-size-value');
+  if (fontSizeSlider) {
+    fontSizeSlider.addEventListener('input', () => {
+      const size = fontSizeSlider.value;
+      fontSizeValue.textContent = size + 'px';
+      document.documentElement.style.fontSize = size + 'px';
+    });
+  }
+
   // Shortcut capture
   setupShortcutCapture();
   setupNewNoteShortcutCapture();
@@ -79,6 +99,7 @@ export async function initSettings() {
     const shortcut = document.getElementById('setting-shortcut').value;
     const newNoteShortcut = document.getElementById('setting-new-note-shortcut').value;
     const autostart = document.getElementById('setting-autostart').checked;
+    const fontSize = parseInt(document.getElementById('setting-font-size').value) || 14;
 
     // Save config first (independent of shortcut)
     try {
@@ -87,6 +108,7 @@ export async function initSettings() {
         shortcut,
         new_note_shortcut: newNoteShortcut,
         autostart,
+        font_size: fontSize,
         check_updates: config.check_updates,
         window_width: config.window_width,
         window_height: config.window_height,
@@ -174,7 +196,7 @@ function setupShortcutCaptureFor(displayId, inputId, toastPrefix) {
   display.addEventListener('click', () => {
     isRecording = true;
     display.classList.add('recording');
-    display.textContent = 'Pressione a combinacao...';
+    display.textContent = 'Insira um atalho (ex: Alt + D)';
     display.focus();
   });
 

@@ -738,6 +738,7 @@ mod tests {
             check_updates: true,
             window_width: 800,
             window_height: 600,
+            font_size: 14,
         };
 
         let json = serde_json::to_string_pretty(&config).unwrap();

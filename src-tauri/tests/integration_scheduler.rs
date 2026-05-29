@@ -166,8 +166,10 @@ fn test_config_overwrite() {
         window_width: 700,
         window_height: 560,
         shortcut: "Ctrl+Alt+N".to_string(),
+        new_note_shortcut: String::new(),
         autostart: false,
         check_updates: false,
+        font_size: 14,
     };
     storage::save_config_at(&data_dir, &config).unwrap();
 

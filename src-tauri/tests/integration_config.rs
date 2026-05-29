@@ -16,15 +16,18 @@ fn test_config_save_and_load() {
     let config = Config {
         theme: "light".to_string(),
         shortcut: "Ctrl+Shift+N".to_string(),
+        new_note_shortcut: "Ctrl+Alt+V".to_string(),
         autostart: false,
         check_updates: true,
         window_width: 800,
         window_height: 600,
+        font_size: 14,
     };
     storage::save_config_at(&data_dir, &config).unwrap();
     let loaded = storage::load_config_at(&data_dir);
     assert_eq!(loaded.theme, "light");
     assert_eq!(loaded.shortcut, "Ctrl+Shift+N");
+    assert_eq!(loaded.new_note_shortcut, "Ctrl+Alt+V");
     assert!(!loaded.autostart);
     assert!(loaded.check_updates);
     assert_eq!(loaded.window_width, 800);
@@ -49,20 +52,24 @@ fn test_config_overwrite() {
     let config1 = Config {
         theme: "dark".to_string(),
         shortcut: "Ctrl+Alt+X".to_string(),
+        new_note_shortcut: String::new(),
         autostart: true,
         check_updates: true,
         window_width: 500,
         window_height: 650,
+        font_size: 14,
     };
     storage::save_config_at(&data_dir, &config1).unwrap();
 
     let config2 = Config {
         theme: "light".to_string(),
         shortcut: "Ctrl+Shift+N".to_string(),
+        new_note_shortcut: String::new(),
         autostart: false,
         check_updates: false,
         window_width: 1024,
         window_height: 768,
+        font_size: 16,
     };
     storage::save_config_at(&data_dir, &config2).unwrap();
 
@@ -76,10 +83,12 @@ fn test_config_serialization_roundtrip() {
     let config = Config {
         theme: "custom".to_string(),
         shortcut: "Alt+F1".to_string(),
+        new_note_shortcut: String::new(),
         autostart: false,
         check_updates: false,
         window_width: 1920,
         window_height: 1080,
+        font_size: 14,
     };
     let json = serde_json::to_string_pretty(&config).unwrap();
     let parsed: Config = serde_json::from_str(&json).unwrap();

@@ -6,3 +6,10 @@ node_modules
 *.exe
 .DS_Store
 /docs
+/.impeccable
+/.claude
+/openclaude
+TODO.md
+PRODUCT.md
+progress.md
+DESIGN.md

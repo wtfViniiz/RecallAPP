@@ -43,10 +43,18 @@ pub struct Reminder {
 pub struct Config {
     pub theme: String,
     pub shortcut: String,
+    #[serde(default)]
+    pub new_note_shortcut: String,
     pub autostart: bool,
     pub check_updates: bool,
     pub window_width: u32,
     pub window_height: u32,
+    #[serde(default = "default_font_size")]
+    pub font_size: u32,
+}
+
+fn default_font_size() -> u32 {
+    14
 }
 
 impl Default for Config {
@@ -54,10 +62,12 @@ impl Default for Config {
         Self {
             theme: "dark".to_string(),
             shortcut: "Ctrl+Alt+x".to_string(),
+            new_note_shortcut: String::new(),
             autostart: true,
             check_updates: true,
             window_width: 500,
             window_height: 650,
+            font_size: 14,
         }
     }
 }
@@ -167,6 +177,7 @@ mod tests {
         assert_eq!(config.window_width, 500);
         assert_eq!(config.window_height, 650);
         assert_eq!(config.shortcut, "Ctrl+Alt+x");
+        assert_eq!(config.new_note_shortcut, "");
         assert_eq!(config.theme, "dark");
         assert!(config.autostart);
         assert!(config.check_updates);

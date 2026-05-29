@@ -36,7 +36,7 @@ function openEditor(note) {
         <button class="btn btn-secondary" id="btn-copy-all" title="Copiar tudo">${icons.clipboard(16)}</button>
         <button class="btn btn-secondary" id="btn-save-template" title="Salvar como template">${icons['file-text'](16)}</button>
         ${note ? `<button class="btn btn-secondary" id="btn-versions" title="Historico de versoes">${icons.history(16)}</button>` : ''}
-        ${note ? `<button class="btn btn-secondary" id="btn-pin-note" title="Fixar na lista">${note.pinned ? icons['star-filled'](16) : icons.star(16)}</button>` : ''}
+        ${note ? `<button class="btn btn-secondary" id="btn-pin-note" title="Fixar na lista">${note.pinned ? icons['pin-filled'](16) : icons.pin(16)}</button>` : ''}
         ${note ? `<button class="btn btn-danger" id="btn-delete-note">Excluir</button>` : ''}
       </div>
     </div>
@@ -72,6 +72,9 @@ function openEditor(note) {
       <button type="button" class="toolbar-btn" data-command="formatBlock" data-value="BLOCKQUOTE" title="Citacao">${icons.quote(14)}</button>
       <button type="button" class="toolbar-btn" id="btn-insert-code" title="Codigo">${icons.code(14)}</button>
       <button type="button" class="toolbar-btn" id="btn-insert-link" title="Link">${icons.link(14)}</button>
+      <span class="toolbar-separator"></span>
+      <button type="button" class="toolbar-btn" id="btn-font-decrease" title="Diminuir fonte">${icons['text-minus'](14)}</button>
+      <button type="button" class="toolbar-btn" id="btn-font-increase" title="Aumentar fonte">${icons['text-plus'](14)}</button>
     </div>
     <div class="editor-wrapper" id="editor-wrapper">
       <div class="editor-container">
@@ -131,6 +134,16 @@ function openEditor(note) {
         sel.removeAllRanges();
         sel.addRange(range);
       }
+    }
+
+    // Font size increase/decrease
+    if (btn.id === 'btn-font-increase' || btn.id === 'btn-font-decrease') {
+      e.preventDefault();
+      const currentSize = parseFloat(getComputedStyle(contentInput).fontSize);
+      const delta = btn.id === 'btn-font-increase' ? 2 : -2;
+      const newSize = Math.max(10, Math.min(24, currentSize + delta));
+      contentInput.style.fontSize = newSize + 'px';
+      return;
     }
 
     // Link

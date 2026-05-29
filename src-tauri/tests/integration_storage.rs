@@ -37,8 +37,10 @@ fn test_config_save_and_load_roundtrip() {
         window_width: 900,
         window_height: 700,
         shortcut: "Ctrl+Alt+N".to_string(),
+        new_note_shortcut: String::new(),
         autostart: true,
         check_updates: true,
+        font_size: 14,
     };
     storage::save_config_at(&data_dir, &config).unwrap();
     let loaded = storage::load_config_at(&data_dir);
