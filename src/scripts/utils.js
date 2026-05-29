@@ -58,7 +58,9 @@ export function showToast(message, type = 'info', duration = 3000, isHtml = fals
       console.error('showToast: script tag detected in HTML message, blocking');
       toast.textContent = message.replace(/<[^>]*>/g, '');
     } else {
-      toast.innerHTML = message;
+      // Strip on* event handlers for defense-in-depth
+      const sanitized = message.replace(/\son\w+\s*=\s*["'][^"']*["']/gi, '');
+      toast.innerHTML = sanitized;
     }
   } else {
     toast.textContent = message;
@@ -129,7 +131,7 @@ export function toAssetUrl(path) {
 
 export function sanitizeUrl(url) {
   const lower = url.toLowerCase().trim();
-  if (lower.startsWith('javascript:') || lower.startsWith('data:') || lower.startsWith('vbscript:') || lower.startsWith('blob:')) {
+  if (lower.startsWith('javascript:') || lower.startsWith('data:') || lower.startsWith('vbscript:')) {
     return '#blocked';
   }
   // Block protocol-relative URLs
@@ -181,6 +183,8 @@ export function renderMarkdown(text) {
     return '<ol>' + match.replace(/<\/?oli>/g, (t) => t.replace('oli', 'li')) + '</ol>';
   });
   // Unordered list items
+  // Note: Multi-line list items (indented continuation lines) are not supported.
+  // This is a known limitation of regex-based markdown parsing.
   html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
   html = html.replace(/((<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>');
   // Horizontal rule
