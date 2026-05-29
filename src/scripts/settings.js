@@ -165,75 +165,9 @@ export async function initSettings() {
   });
 }
 
-function setupShortcutCapture() {
-  const display = document.getElementById('shortcut-display');
-  const input = document.getElementById('setting-shortcut');
-  let isRecording = false;
-
-  display.addEventListener('click', () => {
-    isRecording = true;
-    display.classList.add('recording');
-    display.textContent = 'Pressione a combinacao...';
-    display.focus();
-  });
-
-  display.addEventListener('keydown', (e) => {
-    if (!isRecording) return;
-    e.preventDefault();
-    e.stopPropagation();
-
-    // Escape cancels recording
-    if (e.key === 'Escape') {
-      isRecording = false;
-      display.classList.remove('recording');
-      display.textContent = formatShortcut(input.value);
-      return;
-    }
-
-    // Need at least one modifier
-    if (!e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) {
-      return;
-    }
-
-    // Ignore modifier-only keydowns
-    if (['Control', 'Alt', 'Shift', 'Meta'].includes(e.key)) {
-      return;
-    }
-
-    const key = normalizeShortcutKey(e);
-    if (!key) {
-      return;
-    }
-
-    // Build shortcut string
-    const parts = [];
-    if (e.ctrlKey) parts.push('Ctrl');
-    if (e.altKey) parts.push('Alt');
-    if (e.shiftKey) parts.push('Shift');
-    if (e.metaKey) parts.push('Super');
-    parts.push(key);
-
-    const shortcut = parts.join('+');
-    input.value = shortcut;
-    display.textContent = formatShortcut(shortcut);
-    display.classList.remove('recording');
-    isRecording = false;
-
-    showToast(`Atalho definido: ${formatShortcut(shortcut)}`, 'success');
-  });
-
-  display.addEventListener('blur', () => {
-    if (isRecording) {
-      isRecording = false;
-      display.classList.remove('recording');
-      display.textContent = formatShortcut(input.value);
-    }
-  });
-}
-
-function setupNewNoteShortcutCapture() {
-  const display = document.getElementById('new-note-shortcut-display');
-  const input = document.getElementById('setting-new-note-shortcut');
+function setupShortcutCaptureFor(displayId, inputId, toastPrefix) {
+  const display = document.getElementById(displayId);
+  const input = document.getElementById(inputId);
   if (!display || !input) return;
   let isRecording = false;
 
@@ -249,7 +183,6 @@ function setupNewNoteShortcutCapture() {
     e.preventDefault();
     e.stopPropagation();
 
-    // Escape cancels recording
     if (e.key === 'Escape') {
       isRecording = false;
       display.classList.remove('recording');
@@ -257,12 +190,10 @@ function setupNewNoteShortcutCapture() {
       return;
     }
 
-    // Need at least one modifier
     if (!e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) {
       return;
     }
 
-    // Ignore modifier-only keydowns
     if (['Control', 'Alt', 'Shift', 'Meta'].includes(e.key)) {
       return;
     }
@@ -272,7 +203,6 @@ function setupNewNoteShortcutCapture() {
       return;
     }
 
-    // Build shortcut string
     const parts = [];
     if (e.ctrlKey) parts.push('Ctrl');
     if (e.altKey) parts.push('Alt');
@@ -286,7 +216,7 @@ function setupNewNoteShortcutCapture() {
     display.classList.remove('recording');
     isRecording = false;
 
-    showToast(`Atalho nova nota definido: ${formatShortcut(shortcut)}`, 'success');
+    showToast(`${toastPrefix}: ${formatShortcut(shortcut)}`, 'success');
   });
 
   display.addEventListener('blur', () => {
@@ -296,6 +226,14 @@ function setupNewNoteShortcutCapture() {
       display.textContent = input.value ? formatShortcut(input.value) : 'Nenhum';
     }
   });
+}
+
+function setupShortcutCapture() {
+  setupShortcutCaptureFor('shortcut-display', 'setting-shortcut', 'Atalho definido');
+}
+
+function setupNewNoteShortcutCapture() {
+  setupShortcutCaptureFor('new-note-shortcut-display', 'setting-new-note-shortcut', 'Atalho nova nota definido');
 }
 
 function normalizeShortcutKey(e) {

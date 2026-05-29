@@ -1,4 +1,7 @@
 async function invoke(cmd, args = {}) {
+  if (!window.__TAURI_INTERNALS__) {
+    throw new Error('Tauri runtime not available');
+  }
   return window.__TAURI_INTERNALS__.invoke(cmd, args);
 }
 
@@ -27,6 +30,7 @@ export const api = {
   getAppVersion: () => invoke('get_app_version'),
   updateConfig: (input) => invoke('update_config', { input }),
   updateShortcut: (shortcutStr) => invoke('update_shortcut', { shortcutStr }),
+  updateNewNoteShortcut: (shortcutStr) => invoke('update_new_note_shortcut', { shortcutStr }),
 
   // Helpers
   getCategories: () => invoke('get_categories'),

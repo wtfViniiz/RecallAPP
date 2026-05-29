@@ -190,13 +190,18 @@ function openEditor(note) {
       status.style.color = 'var(--text-secondary)';
     }
     saveTimeout = setTimeout(async () => {
-      await saveNote(true);
-      if (status) {
+    const success = await saveNote(true);
+    if (status) {
+      if (success) {
         status.textContent = 'Salvo';
         status.style.color = 'var(--success)';
-        setTimeout(() => { if (status) status.textContent = ''; }, 2000);
+      } else {
+        status.textContent = 'Erro ao salvar';
+        status.style.color = 'var(--error)';
       }
-    }, 1000);
+      setTimeout(() => { if (status) status.textContent = ''; }, 2000);
+    }
+  }, 1000);
   };
 
   titleInput.addEventListener('input', autoSave);
@@ -315,7 +320,7 @@ function openEditor(note) {
         if (toastEl?.parentElement) toastEl.remove();
         try {
           await api.saveCustomTemplate({
-            id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36),
+            id: crypto.randomUUID(),
             name,
             title: title || '',
             content: content || '',
@@ -520,7 +525,7 @@ async function saveNote(silent = false) {
   const category = getChips('category-chips')[0] || null;
   const tags = getChips('tag-chips');
 
-  if (!title && !content) return;
+  if (!title && !content) return true;
 
   try {
     if (currentNote && currentNote.id) {
@@ -544,7 +549,9 @@ async function saveNote(silent = false) {
     if (!silent) {
       showToast('Nota salva', 'success');
     }
+    return true;
   } catch (e) {
     showToast(e.message || 'Erro ao salvar', 'error');
+    return false;
   }
 }
