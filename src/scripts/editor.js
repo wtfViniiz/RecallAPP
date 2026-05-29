@@ -149,13 +149,34 @@ function openEditor(note) {
       }
     }
 
-    // Font size increase/decrease
+    // Font size increase/decrease (selected text only, Word-style)
     if (btn.id === 'btn-font-increase' || btn.id === 'btn-font-decrease') {
       e.preventDefault();
-      const currentSize = parseFloat(getComputedStyle(contentInput).fontSize);
+      contentInput.focus();
+      const sel = window.getSelection();
+      if (!sel.rangeCount || sel.isCollapsed) return;
+      const range = sel.getRangeAt(0);
+      if (!contentInput.contains(range.commonAncestorContainer)) return;
       const delta = btn.id === 'btn-font-increase' ? 2 : -2;
-      const newSize = Math.max(10, Math.min(24, currentSize + delta));
-      contentInput.style.fontSize = newSize + 'px';
+      // Get current font size from selection anchor
+      const anchor = sel.anchorNode.nodeType === 3 ? sel.anchorNode.parentElement : sel.anchorNode;
+      const currentSize = parseFloat(getComputedStyle(anchor).fontSize) || 14;
+      const newSize = Math.max(10, Math.min(28, currentSize + delta));
+      // Wrap selection in a span with the new font size
+      const span = document.createElement('span');
+      span.style.fontSize = newSize + 'px';
+      try {
+        range.surroundContents(span);
+      } catch {
+        // surroundContents fails on partial element selections — fallback to execCommand
+        document.execCommand('fontSize', false, '7');
+        contentInput.querySelectorAll('font[size="7"]').forEach(font => {
+          const s = document.createElement('span');
+          s.style.fontSize = newSize + 'px';
+          s.innerHTML = font.innerHTML;
+          font.replaceWith(s);
+        });
+      }
       return;
     }
 
